@@ -1,0 +1,87 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+// ===== STRUCT DOS DADOS =====
+typedef struct {
+  int id;
+  float valor;
+  bool flag;
+  uint32_t seq;
+} Packet;
+
+Packet txData;
+Packet rxData;
+
+uint32_t seqCounter = 0;
+
+// ===== ENDEREÇOS MAC DESTINO =====
+uint8_t peerMAC[] = {0x3C,0x8A,0x1F,0xBB,0x38,0x80}; // ALTERE AQUI
+
+// ===== CALLBACK RECEBIMENTO =====
+void onReceive(const uint8_t *mac, const uint8_t *data, int len) {
+  memcpy(&rxData, data, sizeof(rxData));
+
+  Serial.print("Recebido de: ");
+  for (int i = 0; i < 6; i++) Serial.printf("%02X:", mac[i]);
+  Serial.println("");
+
+  Serial.printf("ID=%d | Valor=%.2f | Flag=%d | Seq=%u\n\n",
+                rxData.id, rxData.valor, rxData.flag, rxData.seq);
+}
+
+// ===== CALLBACK ENVIO =====
+void onSent(const uint8_t *mac, esp_now_send_status_t status) {
+  Serial.print("Envio para ");
+  for (int i = 0; i < 6; i++) Serial.printf("%02X:", mac[i]);
+  Serial.print(" -> ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "OK" : "FALHA");
+}
+
+// ===== SETUP =====
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+
+  // Exibe MAC local
+  Serial.println("MAC Local:");
+  Serial.println(WiFi.macAddress());
+
+  // Inicializa ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Erro ao iniciar ESP-NOW");
+    return;
+  }
+
+  // Registra callbacks
+  esp_now_register_recv_cb(onReceive);
+  esp_now_register_send_cb(onSent);
+
+  // Adiciona peer
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, peerMAC, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (!esp_now_is_peer_exist(peerMAC)) {
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+      Serial.println("Falha ao adicionar peer");
+    } else {
+      Serial.println("Peer adicionado!");
+    }
+  }
+
+  // Dados iniciais
+  txData.id = 1;
+}
+
+// ===== LOOP =====
+void loop() {
+  // txData.valor = random(0, 100) / 3.14;
+  // txData.flag = true;
+  // txData.seq = seqCounter++;
+
+  // // Envia struct
+  // esp_now_send(peerMAC, (uint8_t *)&txData, sizeof(txData));
+
+  // delay(1000);
+}
