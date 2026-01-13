@@ -1,95 +1,121 @@
-#include <esp_now.h>
 #include <WiFi.h>
+#include <esp_now.h>
+
+#define bot_pin 0
+#define led_pin 2
+
+bool last = HIGH, flag = false;
+
+uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 typedef struct {
-  char apelido[10];
-  bool cmdVUP;
-  bool cmdVDN;
-  bool cmdTL;
-  bool cmdTU;
-} comandoStruct;
+  char msg[20];
+} Packet;
 
-typedef struct {
-  char apelido[10];
-  bool estadoIN1;
-  bool estadoIN2;
-} retornoStruct;
+Packet pacote;
 
-comandoStruct enviar;
-retornoStruct recebido;
 
-// LISTA DE SLAVES
-typedef struct {
-  const char *apelido;
-  uint8_t mac[6];
-} dispositivo;
-
-dispositivo slaves[] = {
-  {"PortaDE", {0x58,0xBF,0x25,0x81,0x3E,0x98}},
-  {"PortaDD", {0x24, 0x6F, 0x28, 0xAA, 0x11, 0x02}},
-  {"PortaTE", {0x24, 0x6F, 0x28, 0xAA, 0x11, 0x03}},
-  {"PortaTD", {0x24, 0x6F, 0x28, 0xAA, 0x11, 0x04}}
-};
-int qtdSlaves = sizeof(slaves) / sizeof(slaves[0]);
-
-void onReceive(const uint8_t *mac, const uint8_t *data, int len) {
-  memcpy(&recebido, data, sizeof(recebido));
-  Serial.printf("[RETORNO] %s | IN1=%d | IN2=%d\n", recebido.apelido, recebido.estadoIN1, recebido.estadoIN2);
+// ====== Função para verificar se peer já está adicionado ======
+bool peerExiste(const uint8_t *mac) {
+  esp_now_peer_info_t peer;
+  return esp_now_get_peer(mac, &peer) == ESP_OK;
 }
 
-void sendTo(const char *apelido) {
-  for (int i = 0; i < qtdSlaves; i++) {
-    if (strcmp(apelido, slaves[i].apelido) == 0) {
-      strcpy(enviar.apelido, apelido);
-      esp_now_send(slaves[i].mac, (uint8_t *)&enviar, sizeof(enviar));
+// ====== Função para adicionar peer dinamicamente ======
+bool adicionaPeer(const uint8_t *mac) {
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, mac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  
+  if (!peerExiste(mac)) {
+    Serial.print("Adicionando peer: ");
+    for(int i=0; i<6; i++){ Serial.printf("%02X:", mac[i]); }
+    Serial.println();
+
+    return esp_now_add_peer(&peerInfo) == ESP_OK;
+  }
+  return true; // já existia
+}
+
+void OnSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("Status do envio: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCESSO" : "FALHA");
+}
+
+// ====== Callback de recebimento ======
+void OnRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&pacote, incomingData, sizeof(pacote));
+
+  Serial.print("Recebido: ");
+  Serial.println(pacote.msg);
+
+  Serial.print("MAC do remetente: ");
+  for (int i = 0; i < 6; i++) {
+    Serial.printf("%02X", mac[i]);
+    if (i < 5) Serial.print(":");
+  }
+  Serial.println();
+
+  // Salvar MAC se não estiver pareado
+  if (!peerExiste(mac)) {
+    Serial.println("Novo dispositivo encontrado, salvando...");
+    if (adicionaPeer(mac)) {
+      Serial.println("Peer adicionado!");
+    } else {
+      Serial.println("Falha ao adicionar peer!");
       return;
     }
   }
-  Serial.println("Apelido não encontrado!");
-}
-
-void processaComando(String linha) {
-  linha.trim();
-  int espaco = linha.indexOf(' ');
-  if (espaco < 0) return;
-
-  String alvo = linha.substring(0, espaco);
-  String comando = linha.substring(espaco + 1);
-
-  enviar.cmdVUP = (comando == "VUP");
-  enviar.cmdVDN = (comando == "VDN");
-  enviar.cmdTL  = (comando == "TL");
-  enviar.cmdTU  = (comando == "TU");
-
-  sendTo(alvo.c_str());
 }
 
 void setup() {
   Serial.begin(115200);
+  pinMode(led_pin, OUTPUT);
+  pinMode(bot_pin, INPUT_PULLUP);
+
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
 
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Erro ESP-NOW");
+    Serial.println("Erro ao iniciar ESP-NOW");
     return;
   }
 
-  esp_now_register_recv_cb(onReceive);
+  esp_now_register_send_cb(OnSent);
+  esp_now_register_recv_cb(OnRecv);
 
-  // Registrar peers
-  for (int i = 0; i < qtdSlaves; i++) {
-    esp_now_peer_info_t peer{};
-    memcpy(peer.peer_addr, slaves[i].mac, 6);
-    peer.encrypt = false;
-    esp_now_add_peer(&peer);
+  // 🔥 Necessário para conseguir broadcast
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Falha ao adicionar peer broadcast");
   }
-
-  Serial.println("MASTER PRONTO");
-  Serial.println("Exemplo: PortaTD VUP");
+  
+  delay(2000);
+  if (!digitalRead(bot_pin)){
+    strcpy(pacote.msg, "pair");
+    esp_now_send(broadcastAddress, (uint8_t*)&pacote, sizeof(pacote));
+    Serial.println("Enviado: Ola");
+    delay(2000);
+  }
+  
 }
 
 void loop() {
-  if (Serial.available()) {
-    String line = Serial.readStringUntil('\n');
-    processaComando(line);
+  delay(10);
+
+  bool cur = digitalRead(bot_pin);
+
+  if (last == HIGH && cur == LOW) flag = true;         // apertou
+  if (last == LOW && cur == HIGH && flag) {            // soltou
+    flag = false;
+
+    Serial.println("Botão pressionado, enviando mensagem...");
   }
+
+  last = cur;
 }
