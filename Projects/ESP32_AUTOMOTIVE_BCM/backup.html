@@ -309,6 +309,8 @@
       word-break: break-word;
     }
 
+    .toolbar .spacer { flex: 1; }
+
     @media (max-width: 768px) {
       .form-group { grid-template-columns: 1fr; }
       .form-label { min-width: auto; }
@@ -327,6 +329,10 @@
     <div class="toolbar">
       <button class="btn" id="addLogic">+ Adicionar Lógica</button>
       <button class="btn secondary" id="saveAll">Salvar</button>
+      <div class="spacer"></div>
+      <button class="btn secondary" id="exportConfig">Exportar</button>
+      <button class="btn secondary" id="importConfig">Importar</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none;" />
     </div>
 
     <div id="logics-container" class="content">
@@ -953,7 +959,64 @@
       renderPreview();
     }
 
+    function downloadFile(filename, content) {
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportConfig() {
+      fetch('/api/config')
+        .then(res => res.json())
+        .then(cfg => {
+          downloadFile('bcm_config.json', JSON.stringify(cfg, null, 2));
+          showToast('⬇️ Configuração exportada');
+        })
+        .catch(err => {
+          console.error('Erro ao exportar:', err);
+          showToast('❌ Erro ao exportar');
+        });
+    }
+
+    function importConfigFromText(text) {
+      try {
+        const cfg = JSON.parse(text);
+        if (!cfg.logicas) throw new Error('JSON inválido');
+        fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cfg)
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showToast('✅ Config importada');
+            // Recarregar na UI
+            document.getElementById('logics-container').innerHTML = '';
+            logicCounter = 0;
+            loadConfig();
+          } else {
+            showToast('❌ Erro ao importar');
+          }
+        })
+        .catch(err => {
+          console.error('Erro ao enviar config:', err);
+          showToast('❌ Erro ao enviar config');
+        });
+      } catch (e) {
+        showToast('❌ JSON inválido');
+      }
+    }
+
     function loadConfig() {
+      // limpar atual
+      document.getElementById('logics-container').innerHTML = '';
+      logicCounter = 0;
+      
       fetch('/api/config')
         .then(res => res.json())
         .then(cfg => {
@@ -1001,6 +1064,14 @@
     document.getElementById('addLogic').addEventListener('click', addLogic);
     document.getElementById('saveAll').addEventListener('click', saveConfig);
     document.getElementById('resetAll').addEventListener('click', resetConfig);
+    document.getElementById('exportConfig').addEventListener('click', exportConfig);
+    document.getElementById('importConfig').addEventListener('click', () => document.getElementById('importFile').click());
+    document.getElementById('importFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      file.text().then(importConfigFromText);
+      e.target.value = '';
+    });
 
     // Toggle preview card
     document.getElementById('preview-header').addEventListener('click', () => {
