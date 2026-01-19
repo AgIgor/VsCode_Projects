@@ -1,0 +1,71 @@
+vamos criar um sistema com esp32 semelhante a uma BCM automotiva para controle de iluminaçao, mas antes vamos começar pela interface web, por enquanto crie como index.html, nessa interface preciso de tudo separado por seçoes.
+na primeira seçao:
+
+    estados:
+        destravou:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+
+        travou:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+
+        iginiçao ligou:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+
+        igniçao desligou:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+        
+        abriu porta:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+
+        fechou porta:
+            (checkbox) Ativar/Desativar
+            (input number) Tempo de atraso (segundos)
+
+
+    logicas:
+        crie um campo onde o ususario adicione condicionais para o controle entre os modos
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+    modos:
+        Welcome lights(ligar ao destravar)
+            opçoes de controle ao entrar neste modo:
+            (checkbox) ligar farol após (x segundos)
+            (checkbox) ligar drl após (x segundos)
+            (checkbox) ligar luz interna após (x segundos)
+            (checkbox) ligar luz dos pés após (x segundos)
+            
+            se marcado o checkbox coloque a saida respectiva em HIGH, se não em LOW, se o campo numerico (x segundos) conter algum valor diferente de 0, execute o que foi definido apos o tempo, se o tempo for 0 execute instataneamente.
+
+        Goodby lights(ligar ao desligar o pos chave)
+            opçoes de controle ao entrar neste modo:
+            (checkbox) ligar farol após (x segundos)
+            (checkbox) ligar drl após (x segundos)
+            (checkbox) ligar luz interna após (x segundos)
+            (checkbox) ligar luz dos pés após (x segundos)
+
+        Follow me home lights(ligar ao travar)
+            opçoes de controle ao entrar neste modo:
+            (checkbox) ligar farol após (x segundos)
+            (checkbox) ligar drl após (x segundos)
+            (checkbox) ligar luz interna após (x segundos)
+            (checkbox) ligar luz dos pés após (x segundos)
+            

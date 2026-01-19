@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build BCM ESP32",
+			"type": "shell",
+			"command": "platformio",
+			"args": [
+				"run"
+			],
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "PlatformIO Build",
+			"type": "shell",
+			"command": "platformio",
+			"args": [
+				"run",
+				"--project-dir",
+				"${workspaceFolder}"
+			],
+			"problemMatcher": [
+				"$platformio"
+			]
+		}
+	]
+}

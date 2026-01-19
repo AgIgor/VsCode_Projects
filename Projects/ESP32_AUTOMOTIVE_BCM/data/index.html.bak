@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BCM Automotiva</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --accent-dark: #0891b2;
+      --border: #1f2937;
+      --danger: #ef4444;
+      --success: #10b981;
+    }
+    
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); 
+      color: var(--text); 
+      line-height: 1.6;
+    }
+    
+    .container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    
+    header { 
+      background: linear-gradient(135deg, #0b1020 0%, #111827 100%);
+      border-bottom: 2px solid var(--accent);
+      padding: 2rem 1rem;
+      margin-bottom: 2rem;
+      border-radius: 12px;
+    }
+    h1 { margin: 0; font-size: 1.8rem; color: var(--accent); }
+    .subtitle { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.95rem; }
+
+    .toolbar { 
+      display: flex; 
+      gap: 1rem; 
+      margin-bottom: 2rem; 
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .btn { 
+      background: var(--accent); 
+      color: #001318; 
+      border: none; 
+      border-radius: 8px; 
+      padding: 0.65rem 1.2rem; 
+      font-weight: 600; 
+      cursor: pointer; 
+      font-size: 0.95rem; 
+      transition: all 0.2s;
+    }
+    .btn:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3); }
+    .btn.secondary { 
+      background: transparent; 
+      color: var(--text); 
+      border: 2px solid var(--accent);
+    }
+    .btn.secondary:hover { background: rgba(34, 211, 238, 0.1); }
+    .btn.danger { background: var(--danger); color: white; }
+    .btn.danger:hover { background: #dc2626; }
+    .btn-small { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+
+    .content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+    
+    .card { 
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 12px; 
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--accent); }
+
+    .card-header { 
+      background: linear-gradient(90deg, #0b1020 0%, #151b2a 100%);
+      padding: 1rem;
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-header:hover { background: linear-gradient(90deg, #151b2a 0%, #1f2937 100%); }
+    
+    .card-title { 
+      font-weight: 600; 
+      color: var(--accent); 
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+    }
+    
+    .card-badge { 
+      background: rgba(34, 211, 238, 0.2); 
+      color: var(--accent);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    
+    .caret { 
+      display: inline-block; 
+      transition: transform 0.3s;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    .card.collapsed .caret { transform: rotate(-90deg); }
+
+    .card-body { 
+      display: none; 
+      padding: 1.5rem; 
+      border-top: 1px solid var(--border);
+    }
+    .card.open .card-body { display: block; }
+
+    .form-group { 
+      display: grid; 
+      grid-template-columns: auto 1fr; 
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .form-group:last-child { margin-bottom: 0; }
+    
+    .form-label { 
+      font-weight: 500; 
+      color: var(--text);
+      font-size: 0.9rem;
+      min-width: 140px;
+    }
+    
+    input[type="number"], select { 
+      padding: 0.6rem 0.8rem; 
+      border-radius: 8px; 
+      border: 1px solid var(--border); 
+      background: #0b1020; 
+      color: var(--text); 
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    input[type="number"]:focus, select:focus { 
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+    }
+
+    .section-divider { 
+      border-top: 1px solid var(--border); 
+      margin: 1.5rem 0; 
+      padding-top: 1.5rem;
+    }
+    .section-label { 
+      font-weight: 600; 
+      color: var(--accent);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .outputs-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+      gap: 1rem;
+    }
+    
+    .output-item {
+      background: rgba(34, 211, 238, 0.05);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    
+    .output-name { 
+      font-weight: 600; 
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
+    }
+
+    .output-subtitle {
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0.25rem 0 0.35rem;
+      font-size: 0.85rem;
+    }
+
+    .output-delays {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .actions-row { 
+      display: flex; 
+      gap: 0.75rem; 
+      margin-top: 1.5rem; 
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .help-text {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+    }
+    .empty-state-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    pre { 
+      margin: 0; 
+      white-space: pre-wrap; 
+      word-break: break-word; 
+      background: #0b1020; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      padding: 1rem; 
+      font-size: 0.8rem; 
+      max-height: 300px; 
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--success);
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+      .form-group { grid-template-columns: 1fr; }
+      .form-label { min-width: auto; }
+      .toolbar { flex-direction: column; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚡ BCM Automotiva</h1>
+      <p class="subtitle">Configure as lógicas de iluminação do seu veículo</p>
+    </header>
+
+    <div class="toolbar">
+      <button class="btn" id="addLogic">+ Adicionar Lógica</button>
+      <button class="btn secondary" id="saveAll">Salvar</button>
+      <button class="btn secondary" id="resetAll">Limpar Tudo</button>
+    </div>
+
+    <div id="logics-container" class="content">
+      <!-- Lógicas adicionadas aqui -->
+    </div>
+
+    <div id="empty-state" class="card">
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p><strong>Nenhuma lógica criada ainda</strong></p>
+        <p style="color: var(--muted); margin: 0;">Clique em "+ Adicionar Lógica" para começar</p>
+      </div>
+    </div>
+
+    <div class="card collapsed" id="preview-card" style="margin-top: 2rem;">
+      <div class="card-header" id="preview-header">
+        <span class="card-title">
+          📊 Prévia JSON
+          <span class="caret">▼</span>
+        </span>
+      </div>
+      <div class="card-body">
+        <pre id="preview">{
+  "logicas": []
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const EVENTOS = [
+      { key: 'destravou', label: '🔓 Destravou' },
+      { key: 'travou', label: '🔒 Travou' },
+      { key: 'ignicao_on', label: '🔑 Ignição ligou' },
+      { key: 'ignicao_off', label: '❌ Ignição desligou' },
+      { key: 'porta_abriu', label: '🚪 Abriu porta' },
+      { key: 'porta_fechou', label: '🚪 Fechou porta' },
+    ];
+
+    const SAIDAS = [
+      { key: 'farol', label: 'Farol' },
+      { key: 'drl', label: 'DRL' },
+      { key: 'interna', label: 'Luz interna' },
+      { key: 'pes', label: 'Luz dos pés' },
+    ];
+
+    let logicCounter = 0;
+
+    function createLogicCard(id = null, data = null) {
+      id = id || `logic_${++logicCounter}`;
+      
+      const card = document.createElement('div');
+      card.className = 'card collapsed';
+      card.id = `card_${id}`;
+
+      const header = document.createElement('div');
+      header.className = 'card-header';
+      
+      const title = document.createElement('span');
+      title.className = 'card-title';
+      
+      const caret = document.createElement('span');
+      caret.className = 'caret';
+      caret.textContent = '▼';
+      
+      header.appendChild(title);
+      header.appendChild(caret);
+      
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      // Handler para abrir/fechar
+      header.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        card.classList.toggle('collapsed');
+        card.classList.toggle('open');
+      });
+
+      // Evento trigger
+      const eventoGroup = document.createElement('div');
+      eventoGroup.className = 'form-group';
+      const eventoLabel = document.createElement('label');
+      eventoLabel.className = 'form-label';
+      eventoLabel.textContent = 'Quando:';
+      const eventoSelect = document.createElement('select');
+      eventoSelect.id = `${id}_evento`;
+      
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '⚠️ Selecione um evento...';
+      defaultOpt.disabled = true;
+      eventoSelect.appendChild(defaultOpt);
+      
+      EVENTOS.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.key;
+        opt.textContent = e.label;
+        eventoSelect.appendChild(opt);
+      });
+      if (data?.evento) eventoSelect.value = data.evento;
+      else eventoSelect.value = '';
+      eventoSelect.addEventListener('change', () => {
+        updateCardTitle(id, card);
+        updateCardSummary(id);
+        renderPreview();
+      });
+      
+      eventoGroup.appendChild(eventoLabel);
+      eventoGroup.appendChild(eventoSelect);
+      body.appendChild(eventoGroup);
+
+      // Condições
+      const condLabel = document.createElement('span');
+      condLabel.className = 'section-label';
+      condLabel.textContent = '📋 Condições (opcional)';
+      body.appendChild(condLabel);
+
+      const conditionsRow = document.createElement('div');
+      
+      const portaGroup = document.createElement('div');
+      portaGroup.className = 'form-group';
+      const portaLabel = document.createElement('label');
+      portaLabel.className = 'form-label';
+      portaLabel.textContent = 'Porta:';
+      const portaSelect = document.createElement('select');
+      portaSelect.id = `${id}_cond_porta`;
+      ['any', 'open', 'closed'].forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'open' ? 'Aberta' : 'Fechada');
+        portaSelect.appendChild(opt);
+      });
+      if (data?.conditions?.porta) portaSelect.value = data.conditions.porta;
+      portaSelect.addEventListener('change', renderPreview);
+      portaGroup.appendChild(portaLabel);
+      portaGroup.appendChild(portaSelect);
+      conditionsRow.appendChild(portaGroup);
+
+      const ignicaoGroup = document.createElement('div');
+      ignicaoGroup.className = 'form-group';
+      const ignicaoLabel = document.createElement('label');
+      ignicaoLabel.className = 'form-label';
+      ignicaoLabel.textContent = 'Ignição:';
+      const ignicaoSelect = document.createElement('select');
+      ignicaoSelect.id = `${id}_cond_ignicao`;
+      ['any', 'on', 'off'].forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'on' ? 'Ligada' : 'Desligada');
+        ignicaoSelect.appendChild(opt);
+      });
+      if (data?.conditions?.ignicao) ignicaoSelect.value = data.conditions.ignicao;
+      ignicaoSelect.addEventListener('change', renderPreview);
+      ignicaoGroup.appendChild(ignicaoLabel);
+      ignicaoGroup.appendChild(ignicaoSelect);
+      conditionsRow.appendChild(ignicaoGroup);
+      
+      body.appendChild(conditionsRow);
+
+      // Saídas
+      const outputLabel = document.createElement('span');
+      outputLabel.className = 'section-label';
+      outputLabel.style.marginTop = '1.5rem';
+      outputLabel.textContent = '💡 Controlar as luzes';
+      body.appendChild(outputLabel);
+
+      const outputsGrid = document.createElement('div');
+      outputsGrid.className = 'outputs-grid';
+
+      SAIDAS.forEach(saida => {
+        const item = document.createElement('div');
+        item.className = 'output-item';
+
+        const outputData = data?.outputs?.[saida.key] || {};
+        const ligarData = outputData.ligar || {};
+        const desligarData = outputData.desligar || {};
+        const ligarAfterVal = Math.max(0, Number(ligarData.after ?? outputData.after ?? 0));
+        const desligarAfterVal = Math.max(0, Number(desligarData.after ?? 0));
+        const enabledVal = outputData.enabled ?? false;
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+        header.style.gap = '0.5rem';
+        header.style.marginBottom = '0.75rem';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `${id}_${saida.key}_enabled`;
+        checkbox.checked = enabledVal;
+        checkbox.style.width = '18px';
+        checkbox.style.height = '18px';
+        checkbox.style.cursor = 'pointer';
+        checkbox.addEventListener('change', () => {
+          updateOutputHint(id, saida.key);
+          renderPreview();
+        });
+
+        const name = document.createElement('div');
+        name.className = 'output-name';
+        name.style.margin = '0';
+        name.textContent = saida.label;
+
+        header.appendChild(checkbox);
+        header.appendChild(name);
+        item.appendChild(header);
+
+        // BLOCO LIGAR
+        const ligarTitle = document.createElement('div');
+        ligarTitle.className = 'output-subtitle';
+        ligarTitle.textContent = 'Ligar';
+        item.appendChild(ligarTitle);
+
+        const delaysOn = document.createElement('div');
+        delaysOn.className = 'output-delays';
+        delaysOn.style.gridTemplateColumns = '1fr';
+
+        const delayOnGroup = document.createElement('div');
+        delayOnGroup.className = 'form-group';
+        delayOnGroup.style.gridTemplateColumns = '1fr';
+        delayOnGroup.style.marginBottom = '0';
+        
+        const delayOnLabel = document.createElement('label');
+        delayOnLabel.className = 'form-label';
+        delayOnLabel.style.minWidth = 'auto';
+        delayOnLabel.textContent = 'Após (s):';
+        
+        const delayOnInput = document.createElement('input');
+        delayOnInput.type = 'number';
+        delayOnInput.id = `${id}_${saida.key}_ligar_after`;
+        delayOnInput.min = 0;
+        delayOnInput.max = 300;
+        delayOnInput.step = 1;
+        delayOnInput.value = ligarAfterVal;
+        delayOnInput.addEventListener('input', () => {
+          updateOutputHint(id, saida.key);
+          renderPreview();
+        });
+        
+        delayOnGroup.appendChild(delayOnLabel);
+        delayOnGroup.appendChild(delayOnInput);
+        delaysOn.appendChild(delayOnGroup);
+
+        item.appendChild(delaysOn);
+
+        // BLOCO DESLIGAR
+        const desligarTitle = document.createElement('div');
+        desligarTitle.className = 'output-subtitle';
+        desligarTitle.textContent = 'Desligar';
+        desligarTitle.style.marginTop = '0.75rem';
+        item.appendChild(desligarTitle);
+
+        const delaysOff = document.createElement('div');
+        delaysOff.className = 'output-delays';
+        delaysOff.style.gridTemplateColumns = '1fr';
+
+        const delayOffGroup = document.createElement('div');
+        delayOffGroup.className = 'form-group';
+        delayOffGroup.style.gridTemplateColumns = '1fr';
+        delayOffGroup.style.marginBottom = '0';
+        
+        const delayOffLabel = document.createElement('label');
+        delayOffLabel.className = 'form-label';
+        delayOffLabel.style.minWidth = 'auto';
+        delayOffLabel.textContent = 'Após (s):';
+        
+        const delayOffInput = document.createElement('input');
+        delayOffInput.type = 'number';
+        delayOffInput.id = `${id}_${saida.key}_desligar_after`;
+        delayOffInput.min = 0;
+        delayOffInput.max = 300;
+        delayOffInput.step = 1;
+        delayOffInput.value = desligarAfterVal;
+        delayOffInput.addEventListener('input', () => {
+          updateOutputHint(id, saida.key);
+          renderPreview();
+        });
+        
+        delayOffGroup.appendChild(delayOffLabel);
+        delayOffGroup.appendChild(delayOffInput);
+        delaysOff.appendChild(delayOffGroup);
+
+        item.appendChild(delaysOff);
+
+        const hint = document.createElement('div');
+        hint.className = 'help-text output-hint';
+        hint.id = `${id}_${saida.key}_hint`;
+        item.appendChild(hint);
+        updateOutputHint(id, saida.key);
+        outputsGrid.appendChild(item);
+      });
+
+      body.appendChild(outputsGrid);
+
+      const summary = document.createElement('div');
+      summary.className = 'help-text';
+      summary.id = `${id}_summary`;
+      summary.style.marginTop = '0.75rem';
+      body.appendChild(summary);
+
+      updateCardSummary(id);
+
+      // Botão deletar
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'actions-row';
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn-small danger';
+      deleteBtn.textContent = '🗑️ Deletar';
+      deleteBtn.addEventListener('click', () => {
+        card.remove();
+        updateEmptyState();
+        renderPreview();
+      });
+      
+      actionsRow.appendChild(deleteBtn);
+      body.appendChild(actionsRow);
+
+      card.appendChild(header);
+      card.appendChild(body);
+
+      updateCardTitle(id, card);
+      return card;
+    }
+
+    function updateCardTitle(id, card) {
+      const eventoSelect = document.getElementById(`${id}_evento`);
+      const evento = eventoSelect?.value;
+      const eventoLabel = EVENTOS.find(e => e.key === evento)?.label || 'Nova lógica';
+      
+      const title = card.querySelector('.card-title');
+      title.innerHTML = `${eventoLabel} <span class="caret">▼</span>`;
+    }
+
+    function updateEmptyState() {
+      const container = document.getElementById('logics-container');
+      const emptyState = document.getElementById('empty-state');
+      const hasLogics = container.children.length > 0;
+      emptyState.style.display = hasLogics ? 'none' : 'block';
+    }
+
+    function updateOutputHint(id, key) {
+      const enabled = document.getElementById(`${id}_${key}_enabled`)?.checked ?? false;
+      const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_ligar_after`)?.value ?? 0));
+      const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_desligar_after`)?.value ?? 0));
+      const hintEl = document.getElementById(`${id}_${key}_hint`);
+      if (!hintEl) return;
+
+      if (!enabled) {
+        hintEl.textContent = '⊘ Controle desativado (mantém estado atual)';
+        updateCardSummary(id);
+        return;
+      }
+
+      const partes = [];
+      if (ligarAfter === 0) partes.push('ligar desativado');
+      else partes.push(`liga em ${ligarAfter}s`);
+
+      if (desligarAfter === 0) partes.push('desligar desativado');
+      else partes.push(`desliga em ${desligarAfter}s`);
+
+      hintEl.textContent = partes.join(' · ');
+      updateCardSummary(id);
+    }
+
+    function updateCardSummary(id) {
+      const evento = document.getElementById(`${id}_evento`)?.value;
+      const eventoLabel = EVENTOS.find(e => e.key === evento)?.label || 'Evento';
+      const summaryEl = document.getElementById(`${id}_summary`);
+      if (!summaryEl) return;
+
+      const parts = [];
+      SAIDAS.forEach(s => {
+        const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
+        if (!enabled) return;
+        
+        const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
+        const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
+        if (ligarAfter === 0 && desligarAfter === 0) return;
+
+        let desc = `${s.label}:`;
+        if (ligarAfter === 0) desc += ' ligar desativado';
+        else desc += ` liga em ${ligarAfter}s`;
+
+        if (desligarAfter === 0) desc += ' | desligar desativado';
+        else desc += ` | desliga em ${desligarAfter}s`;
+        parts.push(desc);
+      });
+
+      summaryEl.textContent = parts.length
+        ? `${eventoLabel}: ${parts.join(' | ')}`
+        : `${eventoLabel}: nenhuma saída agendada`;
+    }
+
+    function readAllConfig() {
+      const logicas = [];
+      const cards = document.querySelectorAll('[id^="card_logic_"]');
+      
+      cards.forEach(card => {
+        const id = card.id.replace('card_', '');
+        const evento = document.getElementById(`${id}_evento`)?.value;
+        if (!evento) return;
+        
+        const cond_porta = document.getElementById(`${id}_cond_porta`)?.value ?? 'any';
+        const cond_ignicao = document.getElementById(`${id}_cond_ignicao`)?.value ?? 'any';
+        
+        const outputs = {};
+        SAIDAS.forEach(s => {
+          const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
+          const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
+          const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
+          outputs[s.key] = {
+            enabled: enabled,
+            ligar: { after: ligarAfter },
+            desligar: { after: desligarAfter }
+          };
+        });
+        
+        logicas.push({
+          evento,
+          conditions: { porta: cond_porta, ignicao: cond_ignicao },
+          outputs
+        });
+      });
+      
+      return { logicas };
+    }
+
+    function renderPreview() {
+      const cfg = readAllConfig();
+      document.getElementById('preview').textContent = JSON.stringify(cfg, null, 2);
+    }
+
+    function logConfigSummary(cfg) {
+      console.log('\n═══════════════════════════════════════════════════');
+      console.log('📤 CONFIGURAÇÃO PARA ENVIO AO ESP32');
+      console.log('═══════════════════════════════════════════════════\n');
+      
+      if (!cfg.logicas || cfg.logicas.length === 0) {
+        console.log('⚠️  Nenhuma lógica configurada');
+        return;
+      }
+
+      cfg.logicas.forEach((logic, idx) => {
+        const eventoLabel = EVENTOS.find(e => e.key === logic.evento)?.label || logic.evento;
+        console.log(`\n🔹 Lógica ${idx + 1}: ${eventoLabel}`);
+        
+        // Condições
+        const conds = [];
+        if (logic.conditions.porta !== 'any') {
+          const portaLabel = logic.conditions.porta === 'open' ? 'Porta aberta' : 'Porta fechada';
+          conds.push(portaLabel);
+        }
+        if (logic.conditions.ignicao !== 'any') {
+          const ignLabel = logic.conditions.ignicao === 'on' ? 'Ignição ligada' : 'Ignição desligada';
+          conds.push(ignLabel);
+        }
+        if (conds.length > 0) {
+          console.log(`   📋 Condições: ${conds.join(' + ')}`);
+        } else {
+          console.log('   📋 Condições: Nenhuma (sempre executar)');
+        }
+
+        // Saídas
+        console.log('   💡 Ações:');
+        let hasActions = false;
+        SAIDAS.forEach(s => {
+          const out = logic.outputs[s.key];
+          if (!out.enabled) return;
+          
+          const ligar = out.ligar.after;
+          const desligar = out.desligar.after;
+          
+          if (ligar === 0 && desligar === 0) return;
+          hasActions = true;
+          
+          let actionStr = `      • ${s.label}: `;
+          if (ligar > 0) actionStr += `liga em ${ligar}s`;
+          else if (ligar === 0) actionStr += 'ligar desativado';
+          
+          if (desligar > 0) actionStr += ` | desliga em ${desligar}s`;
+          else if (desligar === 0) actionStr += ' | desligar desativado';
+          
+          console.log(actionStr);
+        });
+        
+        if (!hasActions) {
+          console.log('      (Nenhuma saída configurada)');
+        }
+      });
+      
+      console.log('\n═══════════════════════════════════════════════════');
+      console.log(`✅ Total: ${cfg.logicas.length} lógica(s) configurada(s)`);
+      console.log('═══════════════════════════════════════════════════\n');
+    }
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function saveConfig() {
+      const cfg = readAllConfig();
+      logConfigSummary(cfg);
+      try {
+        localStorage.setItem('bcm_config', JSON.stringify(cfg));
+        showToast('✅ Configuração salva com sucesso!');
+      } catch (e) {
+        showToast('❌ Erro ao salvar: ' + e.message);
+      }
+    }
+
+    function resetConfig() {
+      if (!confirm('Deseja remover todas as lógicas?')) return;
+      document.getElementById('logics-container').innerHTML = '';
+      logicCounter = 0;
+      updateEmptyState();
+      renderPreview();
+    }
+
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem('bcm_config');
+        if (!raw) return;
+        
+        const cfg = JSON.parse(raw);
+        if (!cfg.logicas || cfg.logicas.length === 0) return;
+        
+        cfg.logicas.forEach(logic => {
+          const card = createLogicCard(null, {
+            evento: logic.evento,
+            conditions: logic.conditions,
+            outputs: logic.outputs
+          });
+          document.getElementById('logics-container').appendChild(card);
+        });
+      } catch (e) {
+        console.error('Erro ao carregar config:', e);
+      }
+      updateEmptyState();
+      renderPreview();
+    }
+
+    function addLogic() {
+      const card = createLogicCard();
+      document.getElementById('logics-container').appendChild(card);
+      updateEmptyState();
+      renderPreview();
+      card.classList.toggle('collapsed');
+      card.classList.toggle('open');
+    }
+
+    document.getElementById('addLogic').addEventListener('click', addLogic);
+    document.getElementById('saveAll').addEventListener('click', saveConfig);
+    document.getElementById('resetAll').addEventListener('click', resetConfig);
+
+    // Toggle preview card
+    document.getElementById('preview-header').addEventListener('click', () => {
+      document.getElementById('preview-card').classList.toggle('collapsed');
+      document.getElementById('preview-card').classList.toggle('open');
+    });
+
+    // Carregar config ao iniciar
+    loadConfig();
+  </script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+#include <Arduino.h>
+#include <avr/wdt.h>
+#include <avr/interrupt.h>
+
+/* ===== CONFIGURAÇÃO DE PINOS ===== */
+#ifdef __AVR_ATtiny85__
+  #define PIN_SETA        0
+  #define PIN_IGNICAO     2
+  #define PIN_FAROL       1
+  #define PIN_RELE_SETA   4
+#elif __AVR_ATmega328P__
+  #define PIN_SETA        4  
+  #define PIN_IGNICAO     7  
+  #define PIN_FAROL       12 
+  #define PIN_RELE_SETA   13 
+#endif
+
+/* ===== TIMINGS (ms) ===== */
+#define JANELA_PISCADA       1200   // Janela para contar piscadas de seta
+#define TEMPO_FOLLOW_1       40000  // Follow-Me com 1 piscada
+#define TEMPO_FOLLOW_2       25000  // Follow-Me com 2 piscadas
+#define TEMPO_POS_IGNICAO    10000  // Tempo de farol após desligar ignição
+#define TEMPO_MIN_RELE_SETA  2500   // Tempo mínimo do relé ligado
+#define TEMPO_SETA_INATIVA   3000   // Tempo para detectar seta parada
+#define TEMPO_DEBOUNCE       20     // Debounce para entradas digitais
+#define TEMPO_LEITURA        150    // Intervalo de leitura do loop
+
+/* ===== ESTADO DO SISTEMA ===== */
+unsigned long agora = 0;
+
+// Variáveis de debounce para entradas
+unsigned long ultimaLeituraIgnicao = 0;
+unsigned long ultimaLeituraSeta = 0;
+bool ignicaoDebounced = false;
+bool setaDebounced = false;
+bool ignicaoAnterior = false;
+bool setaAnterior = false;
+
+// Controle de farol
+bool farolLigado = false;
+
+// Estados do modo DRL (Daytime Running Light - ignição ligada)
+bool modoAtivo = false;  // Ignição ligada
+
+// Estados do Follow-Me (ignição desligada)
+unsigned long timerFollowMe = 0;
+unsigned long tempoFollowMe = 0;
+bool followMeAtivo = false;
+unsigned long ultimaPiscada = 0;
+int contPiscadas = 0;
+
+// Estados pós-ignição (farol mantém aceso após desligar)
+unsigned long timerPosIgnicao = 0;
+bool posIgnicaoAtivo = false;
+
+// Controle do relé das setas
+unsigned long timerReleSeta = 0;
+bool releSetaAtivo = false;
+unsigned long ultimaAtividadeSeta = 0;
+
+/* ===== FUNÇÕES AUXILIARES ===== */
+
+/**
+ * @brief Debounce digital de uma entrada com acumulador temporal
+ * Lê a entrada apenas a cada TEMPO_DEBOUNCE milissegundos
+ * @param pino: Pino a ler (com INPUT_PULLUP)
+ * @param ultimoTempo: Referência ao último tempo de leitura
+ * @param estadoAnterior: Estado anterior da entrada
+ * @return Estado debounced (invertido para entrada PULLUP)
+ */
+bool lerEntradaDebounced(uint8_t pino, unsigned long& ultimoTempo, bool estadoAnterior) {
+  if (agora - ultimoTempo >= TEMPO_DEBOUNCE) {
+    bool estadoAtual = !digitalRead(pino);  // Invertido porque usa PULLUP
+    ultimoTempo = agora;
+    return estadoAtual;
+  }
+  return estadoAnterior;
+}
+
+/**
+ * @brief Liga ou desliga o farol de forma centralizada
+ * Evita múltiplas alterações desnecessárias ao pino
+ * @param ligar: true para ligar, false para desligar
+ */
+void controlarFarol(bool ligar) {
+  if (ligar && !farolLigado) {
+    digitalWrite(PIN_FAROL, HIGH);
+    farolLigado = true;
+  } else if (!ligar && farolLigado) {
+    digitalWrite(PIN_FAROL, LOW);
+    farolLigado = false;
+  }
+}
+
+/**
+ * @brief Processa o Follow-Me (acende farol por piscadas de seta com ignição desligada)
+ * 
+ * Funcionamento:
+ * - Com ignição desligada, conta piscadas de seta dentro de JANELA_PISCADA
+ * - 1 piscada = farol por TEMPO_FOLLOW_1 (40s)
+ * - 2+ piscadas = farol por TEMPO_FOLLOW_2 (25s)
+ */
+void procesarFollowMe() {
+  if (modoAtivo) return;  // Follow-Me só funciona com ignição desligada
+  
+  // Detecta piscada (borda de subida na seta)
+  if (setaDebounced && !setaAnterior) {
+    contPiscadas++;
+    ultimaPiscada = agora;
+  }
+
+  // Quando a janela de piscadas fecha, ativa o Follow-Me
+  if (contPiscadas > 0 && (agora - ultimaPiscada > JANELA_PISCADA)) {
+    
+    if (contPiscadas == 1) {
+      tempoFollowMe = TEMPO_FOLLOW_1;
+    } else {
+      tempoFollowMe = TEMPO_FOLLOW_2;
+    }
+
+    if (tempoFollowMe > 0) {
+      controlarFarol(true);
+      followMeAtivo = true;
+      timerFollowMe = agora;
+    }
+    
+    contPiscadas = 0;
+  }
+
+  // Desativa Follow-Me após expiração do tempo
+  if (followMeAtivo && (agora - timerFollowMe >= tempoFollowMe)) {
+    followMeAtivo = false;
+    tempoFollowMe = 0;
+    
+    // Apaga farol se não houver outro modo ativo
+    if (!posIgnicaoAtivo) {
+      controlarFarol(false);
+    }
+  }
+}
+
+/**
+ * @brief Controla o farol em modo DRL (Daytime Running Light) quando ignição ligada
+ */
+void processarModoAtivo() {
+  if (modoAtivo) {
+    controlarFarol(true);
+  }
+}
+
+/**
+ * @brief Processa o modo pós-ignição (farol mantém aceso um tempo após desligar)
+ * 
+ * Quando a ignição desliga, o farol permanece aceso por TEMPO_POS_IGNICAO
+ * Isso facilita saída do veículo em locais com pouca luz
+ */
+void processarPosiIgnicao() {
+  if (posIgnicaoAtivo) {
+    controlarFarol(true);
+
+    if (agora - timerPosIgnicao >= TEMPO_POS_IGNICAO) {
+      posIgnicaoAtivo = false;
+      
+      // Apaga farol se não houver Follow-Me ativo
+      if (!followMeAtivo) {
+        controlarFarol(false);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Processa o relé das setas com bloqueio temporal
+ * 
+ * Funcionamento:
+ * - Liga o relé ao detectar piscada de seta
+ * - Mantém ligado por no mínimo TEMPO_MIN_RELE_SETA
+ * - Desliga quando: (tempo_mínimo_ok) E (seta_parada_por_TEMPO_SETA_INATIVA)
+ */
+void processarReleSeta() {
+  // Liga o relé ao detectar piscada
+  if (setaDebounced && !setaAnterior) {
+    ultimaAtividadeSeta = agora;
+    
+    if (!releSetaAtivo) {
+      digitalWrite(PIN_RELE_SETA, HIGH);
+      releSetaAtivo = true;
+      timerReleSeta = agora;
+    }
+  }
+
+  // Desliga o relé depois de tempo mínimo E seta inativa
+  if (releSetaAtivo) {
+    bool tempoMinOk = (agora - timerReleSeta) >= TEMPO_MIN_RELE_SETA;
+    bool setaParada = (agora - ultimaAtividadeSeta) >= TEMPO_SETA_INATIVA;
+
+    if (tempoMinOk && setaParada) {
+      digitalWrite(PIN_RELE_SETA, LOW);
+      releSetaAtivo = false;
+    }
+  }
+}
+
+/**
+ * @brief Processa mudanças de estado da ignição
+ * 
+ * Detecta bordas (transições):
+ * - Ligação: reseta Follow-Me, ativa modo DRL
+ * - Desligação: ativa modo pós-ignição
+ */
+void processarIgnicao() {
+  // Detecta ligação da ignição (borda de subida)
+  if (ignicaoDebounced && !ignicaoAnterior) {
+    modoAtivo = true;
+    followMeAtivo = false;
+    posIgnicaoAtivo = false;
+  }
+
+  // Detecta desligação da ignição (borda de descida)
+  if (!ignicaoDebounced && ignicaoAnterior) {
+    modoAtivo = false;
+    timerPosIgnicao = agora;
+    posIgnicaoAtivo = true;
+  }
+}
+
+/**
+ * @brief Fail-safe final: garante farol desligado se nenhum modo ativo
+ * Protege contra bugs de lógica e garante desligamento seguro
+ */
+void failSafeFarol() {
+  if (!modoAtivo && !followMeAtivo && !posIgnicaoAtivo) {
+    controlarFarol(false);
+  }
+}
+
+/* ===== SETUP ===== */
+void setup() {
+  cli();               // Desabilita interrupções globais
+  wdt_reset();
+  wdt_disable();       // Garante WDT desligado no boot
+  
+  // Configuração dos pinos
+  pinMode(PIN_SETA, INPUT_PULLUP);
+  pinMode(PIN_IGNICAO, INPUT_PULLUP);
+  pinMode(PIN_FAROL, OUTPUT);
+  pinMode(PIN_RELE_SETA, OUTPUT);
+
+  // Inicializa saídas desligadas
+  digitalWrite(PIN_FAROL, LOW);
+  digitalWrite(PIN_RELE_SETA, LOW);
+
+  // Ativa watchdog com timeout de 1 segundo
+  wdt_enable(WDTO_1S);
+  sei();               // Reabilita interrupções globais
+}
+
+/* ===== LOOP PRINCIPAL ===== */
+void loop() {
+  // Lê timer do sistema
+  delay(TEMPO_LEITURA);
+  wdt_reset();         // Alimenta o watchdog
+  agora = millis();
+
+  // Lê entradas com debounce
+  ignicaoDebounced = lerEntradaDebounced(PIN_IGNICAO, ultimaLeituraIgnicao, ignicaoAnterior);
+  setaDebounced = lerEntradaDebounced(PIN_SETA, ultimaLeituraSeta, setaAnterior);
+
+  // Processa lógica de cada subsistema
+  processarIgnicao();      // Detecta mudanças de ignição
+  processarModoAtivo();    // DRL quando ignição ligada
+  processarPosiIgnicao();  // Farol após desligar ignição
+  procesarFollowMe();      // Follow-Me com piscadas de seta
+  processarReleSeta();     // Controle do relé das setas
+
+  // Fail-safe: garante desligamento seguro
+  failSafeFarol();
+
+  // Atualiza estado anterior das entradas (para detectar bordas no próximo ciclo)
+  ignicaoAnterior = ignicaoDebounced;
+  setaAnterior = setaDebounced;
+}
