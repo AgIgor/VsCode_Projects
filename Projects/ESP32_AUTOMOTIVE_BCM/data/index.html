@@ -322,7 +322,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>⚡ BCM Automotiva</h1>
+      <h1 id="bcm-title">⚡ BCM_ESP32</h1>
       <p class="subtitle">Configure as lógicas de iluminação do seu veículo</p>
     </header>
 
@@ -444,6 +444,42 @@
         <pre id="preview">{
   "logicas": []
 }</pre>
+      </div>
+    </div>
+
+    <div class="card collapsed" id="settings-card" style="margin-top: 2rem;">
+      <div class="card-header" id="settings-header">
+        <span class="card-title">
+          ⚙️ Configurações
+          <span class="caret">▼</span>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Nome da BCM:</label>
+          <input type="text" id="bcmNameInput" maxlength="32" placeholder="Ex: BCM_ESP32">
+        </div>
+        <div class="help-text">Nome que aparecerá no topo da página</div>
+        
+        <div class="section-divider"></div>
+        
+        <div class="form-group">
+          <label class="form-label">SSID WiFi:</label>
+          <input type="text" id="wifiSSIDInput" maxlength="32" placeholder="Ex: BCM_ESP32">
+        </div>
+        <div class="help-text">Nome da rede WiFi (máximo 32 caracteres)</div>
+        
+        <div class="actions-row">
+          <button class="btn" id="saveSettings">Salvar Configurações</button>
+          <button class="btn secondary" id="loadSettings">Recarregar</button>
+        </div>
+        
+        <div class="section-divider"></div>
+        
+        <div class="help-text" style="margin-bottom: 1rem;">
+          ⚠️ Reinicie o ESP32 para aplicar as alterações de WiFi SSID
+        </div>
+        <button class="btn danger" id="restartESP" style="width: 100%;">🔄 Reiniciar ESP32</button>
       </div>
     </div>
 
@@ -1174,8 +1210,94 @@
     setInterval(updateLogs, 1500);
     updateLogs();
 
+    // Carregar configurações de WiFi e BCM Name
+    function loadSettings() {
+      fetch('/api/settings')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('bcmNameInput').value = data.bcmName || 'BCM_ESP32';
+          document.getElementById('wifiSSIDInput').value = data.wifiSSID || 'BCM_ESP32';
+          document.getElementById('bcm-title').textContent = '⚡ ' + (data.bcmName || 'BCM_ESP32');
+          showToast('⚙️ Configurações carregadas');
+        })
+        .catch(err => {
+          console.error('Erro ao carregar configurações:', err);
+          showToast('❌ Erro ao carregar configurações');
+        });
+    }
+
+    // Salvar configurações de WiFi e BCM Name
+    function saveSettings() {
+      const bcmName = document.getElementById('bcmNameInput').value.trim();
+      const wifiSSID = document.getElementById('wifiSSIDInput').value.trim();
+
+      if (!bcmName || !wifiSSID) {
+        showToast('⚠️ Preencha todos os campos');
+        return;
+      }
+
+      const settings = { bcmName, wifiSSID };
+
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('bcm-title').textContent = '⚡ ' + bcmName;
+          showToast('✅ Configurações salvas!');
+        } else {
+          showToast('❌ ' + (data.error || 'Erro ao salvar'));
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao salvar configurações:', err);
+        showToast('❌ Erro ao salvar configurações');
+      });
+    }
+
+    // Listeners para settings
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    document.getElementById('loadSettings').addEventListener('click', loadSettings);
+
+    // Reiniciar ESP32
+    document.getElementById('restartESP').addEventListener('click', () => {
+      if (!confirm('⚠️ Tem certeza que deseja reiniciar o ESP32?')) return;
+      
+      showToast('🔄 Reiniciando ESP32...');
+      
+      fetch('/api/restart', {
+        method: 'POST'
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showToast('✅ ESP32 reiniciando... Aguarde 5 segundos.');
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao reiniciar:', err);
+        showToast('⚠️ ESP32 reiniciando...');
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+      });
+    });
+
+    // Toggle settings card
+    document.getElementById('settings-header').addEventListener('click', () => {
+      document.getElementById('settings-card').classList.toggle('collapsed');
+      document.getElementById('settings-card').classList.toggle('open');
+    });
+
     // Carregar config ao iniciar
     loadConfig();
+    loadSettings();
   </script>
 </body>
 </html>

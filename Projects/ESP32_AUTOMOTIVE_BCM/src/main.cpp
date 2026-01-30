@@ -4,12 +4,14 @@
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
 
 // ============= CONFIGURAÇÕES =============
-#define AP_SSID "BCM_ESP32"
 #define AP_PASSWORD "12345678"
 #define AUTH_USER "admin"
 #define AUTH_PASS "admin123"
+#define DEFAULT_SSID "BCM_ESP32"
+#define DEFAULT_BCM_NAME "BCM_ESP32"
 
 // ENTRADAS (Pull-up ativo em LOW)
 #define PIN_IGNICAO 13
@@ -42,7 +44,12 @@ struct InputState {
 
 // ============= VARIÁVEIS GLOBAIS =============
 AsyncWebServer server(80);
+DNSServer dnsServer;
 JsonDocument configDoc;
+
+// WiFi e BCM configuráveis
+String wifiSSID = DEFAULT_SSID;
+String bcmName = DEFAULT_BCM_NAME;
 
 OutputState outputStates[4]; // farol, drl, interna, pes
 InputState inputStates[4];   // ignicao, porta, trava, destrava
@@ -95,13 +102,14 @@ void pushLogf(const char* fmt, ...) {
 void enableWiFi() {
   if (wifiEnabled) return;
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(AP_SSID, AP_PASSWORD);
+  WiFi.softAP(wifiSSID.c_str(), AP_PASSWORD);
   wifiEnabled = true;
-  pushLog("✅ WiFi ATIVADO - http://" + WiFi.softAPIP().toString());
+  pushLog("✅ WiFi ATIVADO - SSID: " + wifiSSID + " - http://" + WiFi.softAPIP().toString());
 }
 
 void disableWiFi() {
   if (!wifiEnabled) return;
+  dnsServer.stop();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
   wifiEnabled = false;
@@ -142,6 +150,19 @@ void loadConfig() {
   if (error) {
     pushLog(String("Erro ao ler config: ") + error.c_str());
     return;
+  }
+
+  // Carregar WiFi SSID e BCM Name das configurações
+  if (configDoc["wifiSSID"].is<const char*>()) {
+    wifiSSID = configDoc["wifiSSID"].as<const char*>();
+  } else {
+    wifiSSID = DEFAULT_SSID;
+  }
+  
+  if (configDoc["bcmName"].is<const char*>()) {
+    bcmName = configDoc["bcmName"].as<const char*>();
+  } else {
+    bcmName = DEFAULT_BCM_NAME;
   }
 
   String pretty;
@@ -346,9 +367,9 @@ void setup() {
   // Configurar WiFi em modo AP (inicia ligado na primeira vez)
   if (wifiEnabled) {
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(AP_SSID, AP_PASSWORD);
+    WiFi.softAP(wifiSSID.c_str(), AP_PASSWORD);
     IPAddress IP = WiFi.softAPIP();
-    pushLog(String("AP iniciado: ") + AP_SSID);
+    pushLog(String("AP iniciado: ") + wifiSSID);
     pushLog(String("Endereço IP: ") + IP.toString());
     pushLog("💡 Dica: Ligue/desligue ignição 5x em 10s para desligar WiFi");
   } else {
@@ -357,6 +378,23 @@ void setup() {
   }
   
   // ===== ROTAS DO SERVIDOR =====
+  
+  // Rotas de detecção de Captive Portal (compatíveis com iOS, Android, Windows)
+  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+  });
+  
+  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(204, "text/plain", "");
+  });
+  
+  server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(204, "text/plain", "");
+  });
+  
+  server.on("/check_network_status.txt", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(204, "text/plain", "");
+  });
   
   // Servir página HTML
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -402,12 +440,75 @@ void setup() {
     }
   );
   
+  // Obter/Alterar configurações de WiFi e BCM Name
+  server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!checkAuth(request)) return;
+    JsonDocument doc;
+    doc["wifiSSID"] = wifiSSID;
+    doc["bcmName"] = bcmName;
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+  
+  server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+      if (!request->authenticate(AUTH_USER, AUTH_PASS)) {
+        request->send(401, "application/json", "{\"success\":false,\"error\":\"unauthorized\"}");
+        return;
+      }
+      static String jsonBuffer;
+      
+      if (index == 0) jsonBuffer = "";
+      jsonBuffer += String((char*)data).substring(0, len);
+      
+      if (index + len == total) {
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, jsonBuffer);
+        
+        if (error) {
+          request->send(400, "application/json", "{\"success\":false,\"error\":\"JSON inválido\"}");
+          return;
+        }
+        
+        // Atualizar SSID
+        if (doc["wifiSSID"].is<const char*>() && strlen(doc["wifiSSID"]) > 0) {
+          wifiSSID = doc["wifiSSID"].as<const char*>();
+          configDoc["wifiSSID"] = wifiSSID;
+          pushLogf("WiFi SSID alterado para: %s", wifiSSID.c_str());
+        }
+        
+        // Atualizar BCM Name
+        if (doc["bcmName"].is<const char*>() && strlen(doc["bcmName"]) > 0) {
+          bcmName = doc["bcmName"].as<const char*>();
+          configDoc["bcmName"] = bcmName;
+          pushLogf("BCM Name alterado para: %s", bcmName.c_str());
+        }
+        
+        // Salvar configuração
+        String jsonStr;
+        serializeJson(configDoc, jsonStr);
+        saveConfig(jsonStr);
+        
+        request->send(200, "application/json", "{\"success\":true,\"message\":\"Configurações atualizadas. WiFi será reiniciado na próxima vez que for ativado.\"}");
+      }
+    }
+  );
+  
   // Resetar configuração
   server.on("/api/reset", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!checkAuth(request)) return;
     configDoc.clear();
     LittleFS.remove("/config.json");
     request->send(200, "application/json", "{\"success\":true}");
+  });
+  
+  // Reiniciar ESP32
+  server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!checkAuth(request)) return;
+    request->send(200, "application/json", "{\"success\":true,\"message\":\"ESP32 reiniciando...\"}");
+    delay(500);
+    ESP.restart();
   });
   
   // Status do sistema
@@ -448,15 +549,78 @@ void setup() {
     serializeJson(doc, payload);
     request->send(200, "application/json", payload);
   });
+
+  // Rota catchall para redirecionamento - Captive Portal
+  // Qualquer requisição HTTP é redirecionada para a página principal
+  server.onNotFound([](AsyncWebServerRequest *request){
+    String url = request->url();
+    
+    // Se não for autenticado e tentar acessar /api, pedir autenticação
+    if (url.startsWith("/api")) {
+      if (!checkAuth(request)) return;
+    }
+    
+    // Requisições de status de conectividade do sistema (iOS, Android, etc)
+    // Estas devem retornar sucesso para indicar que o portal está funcional
+    // Android
+    if (url == "/generate_204" || url == "/gen_204") {
+      request->send(204, "text/plain", "");
+      return;
+    }
+    
+    // Windows/MSFT
+    if (url.indexOf("ncsi.txt") != -1 || url.indexOf("msftncsi") != -1 || url.indexOf("wpad.dat") != -1) {
+      request->send(204, "text/plain", "");
+      return;
+    }
+    
+    // iOS/macOS - Apple captive portal detection
+    if (url == "/hotspot-detect.html" || url.indexOf("apple") != -1 || url.indexOf("icloud") != -1 ||
+        url.indexOf("captive.apple.com") != -1) {
+      request->send(200, "text/html", "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+      return;
+    }
+    
+    // Google/Android alternative
+    if (url.indexOf("connectivitycheck") != -1 || url.indexOf("gstatic") != -1) {
+      request->send(204, "text/plain", "");
+      return;
+    }
+    
+    // Nokia/Other vendors
+    if (url.indexOf("success.txt") != -1 || url == "/check_network_status.txt") {
+      request->send(204, "text/plain", "");
+      return;
+    }
+    
+    // Log para debug
+    pushLogf("🔗 Portal: %s -> redirecionando para raiz", url.c_str());
+    
+    // Redirecionar tudo mais para a raiz (portal cativo)
+    request->redirect("/");
+  });
   
   server.begin();
   pushLog("Servidor HTTP iniciado");
   pushLog("Acesse: http://192.168.4.1");
+  
+  // Inicializar servidor DNS para Captive Portal
+  if (wifiEnabled) {
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    // Redirecionar TODOS os domínios para 192.168.4.1
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    pushLog("🌐 DNS Captive Portal ativado");
+  }
 }
 
 // ============= LOOP =============
 
 void loop() {
+  // Processar requisições DNS (Captive Portal)
+  if (wifiEnabled) {
+    dnsServer.processNextRequest();
+  }
+  
   checkInputs();
   updateOutputs();
   
