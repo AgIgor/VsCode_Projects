@@ -534,6 +534,59 @@ void setup() {
     serializeJson(doc, response);
     request->send(200, "application/json", response);
   });
+  
+  // Controle manual de saídas (toggle)
+  server.on("/api/output/toggle", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+      if (!request->authenticate(AUTH_USER, AUTH_PASS)) {
+        request->send(401, "application/json", "{\"success\":false,\"error\":\"unauthorized\"}");
+        return;
+      }
+      static String jsonBuffer;
+      
+      if (index == 0) jsonBuffer = "";
+      jsonBuffer += String((char*)data).substring(0, len);
+      
+      if (index + len == total) {
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, jsonBuffer);
+        
+        if (error) {
+          request->send(400, "application/json", "{\"success\":false,\"error\":\"JSON inválido\"}");
+          return;
+        }
+        
+        const char* output = doc["output"];
+        if (!output) {
+          request->send(400, "application/json", "{\"success\":false,\"error\":\"Campo 'output' obrigatório\"}");
+          return;
+        }
+        
+        // Encontrar a saída
+        int outputIndex = -1;
+        for (int i = 0; i < 4; i++) {
+          if (strcmp(outputNames[i], output) == 0) {
+            outputIndex = i;
+            break;
+          }
+        }
+        
+        if (outputIndex == -1) {
+          request->send(400, "application/json", "{\"success\":false,\"error\":\"Saída inválida\"}");
+          return;
+        }
+        
+        // Toggle do estado da saída
+        int currentState = digitalRead(outputPins[outputIndex]);
+        int newState = !currentState;
+        digitalWrite(outputPins[outputIndex], newState);
+        
+        pushLogf("🔧 Controle manual: %s -> %s", outputNames[outputIndex], newState ? "ON" : "OFF");
+        
+        request->send(200, "application/json", "{\"success\":true}");
+      }
+    }
+  );
 
   // Logs recentes
   server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
