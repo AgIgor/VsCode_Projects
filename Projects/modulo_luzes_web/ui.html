@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Automatizador de Luzes - Configuração</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1c1f2a;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --border: #e5e7eb;
+      --chip: #eef2ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 24px 28px;
+      background: linear-gradient(120deg, #1d4ed8, #3b82f6);
+      color: #fff;
+    }
+    header h1 { margin: 0 0 6px; font-size: 22px; }
+    header p { margin: 0; opacity: 0.9; font-size: 14px; }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 28px 60px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 6px 16px rgba(31, 41, 55, 0.05);
+    }
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 16px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .form-row.full { grid-template-columns: 1fr; }
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+    }
+    select, input, textarea, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .rules-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .rule {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #fafafa;
+    }
+    .rule-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .rule-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: #1e3a8a;
+      font-size: 12px;
+      margin-right: 6px;
+    }
+    .io-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .io-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn.secondary {
+      background: #e5e7eb;
+      color: #111827;
+      font-weight: 500;
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .summary {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .logic-line {
+      padding: 10px 12px;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 10px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    @media (min-width: 980px) {
+      .grid { grid-template-columns: 1.1fr 1.6fr; }
+      .rule-grid { grid-template-columns: repeat(6, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Modulo Automatizador de Luzes</h1>
+    <p>Configure regras, timers e modos de acionamento das luzes do veículo.</p>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <section class="card">
+        <h2>Entradas (Pull-up)</h2>
+        <div class="io-list">
+          <div class="io-item"><span>Trava</span><strong>GPIO 12</strong></div>
+          <div class="io-item"><span>Destrava</span><strong>GPIO 13</strong></div>
+          <div class="io-item"><span>Porta</span><strong>GPIO 14</strong></div>
+          <div class="io-item"><span>Ignição</span><strong>GPIO 27</strong></div>
+        </div>
+
+        <h2 style="margin-top:18px;">Saídas Digitais</h2>
+        <div class="io-list">
+          <div class="io-item"><span>Farol</span><strong>GPIO 25</strong></div>
+          <div class="io-item"><span>DRL</span><strong>GPIO 26</strong></div>
+          <div class="io-item"><span>Luz Cortesia</span><strong>GPIO 32</strong></div>
+          <div class="io-item"><span>Luz Assoalho</span><strong>GPIO 33</strong></div>
+        </div>
+
+        <h2 style="margin-top:18px;">Timers Globais</h2>
+        <div class="form-row">
+          <div>
+            <label>Delay padrão (s)</label>
+            <input type="number" placeholder="2" />
+          </div>
+          <div>
+            <label>Tempo padrão (s)</label>
+            <input type="number" placeholder="60" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Modo DRL</label>
+            <select>
+              <option>Automático</option>
+              <option>Sempre ligado</option>
+              <option>Desativado</option>
+            </select>
+          </div>
+          <div>
+            <label>Modo Cortesia</label>
+            <select>
+              <option>Automático</option>
+              <option>Somente por porta</option>
+              <option>Desativado</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="rules-header">
+          <h2>Regras de Lógica</h2>
+          <button class="btn">Adicionar regra</button>
+        </div>
+
+        <div class="rule">
+          <div class="rule-title">
+            <span>Regra 01</span>
+            <span class="chip">enquanto</span>
+          </div>
+          <div class="rule-grid">
+            <div>
+              <label>Operador</label>
+              <select>
+                <option>enquanto</option>
+                <option>se</option>
+                <option>quando</option>
+              </select>
+            </div>
+            <div>
+              <label>Entrada</label>
+              <select>
+                <option>Porta</option>
+                <option>Trava</option>
+                <option>Destrava</option>
+                <option>Ignição</option>
+              </select>
+            </div>
+            <div>
+              <label>Estado (depende da entrada)</label>
+              <select>
+                <option>pulso detectado (trava/destrava)</option>
+                <option>aberta (porta)</option>
+                <option>fechada (porta)</option>
+                <option>ligado (ignição)</option>
+                <option>desligado (ignição)</option>
+              </select>
+            </div>
+            <div>
+              <label>Ação</label>
+              <select>
+                <option>ligar</option>
+                <option>desligar</option>
+                <option>ligar em</option>
+                <option>desligar em</option>
+              </select>
+            </div>
+            <div>
+              <label>Delay (s)</label>
+              <input type="number" placeholder="0" />
+            </div>
+            <div>
+              <label>Saída</label>
+              <select>
+                <option>Luz Cortesia</option>
+                <option>Luz Assoalho</option>
+                <option>Farol</option>
+                <option>DRL</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:10px;">
+            <div>
+              <label>Por quanto tempo (s)</label>
+              <input type="number" placeholder="0" />
+            </div>
+            <div>
+              <label>Operador lógico</label>
+              <select>
+                <option>—</option>
+                <option>AND</option>
+                <option>OR</option>
+              </select>
+            </div>
+          </div>
+          <div class="summary">Exemplo: enquanto porta aberta, ligar luz cortesia.</div>
+        </div>
+
+        <div class="rule">
+          <div class="rule-title">
+            <span>Regra 02</span>
+            <span class="chip">se</span>
+          </div>
+          <div class="rule-grid">
+            <div>
+              <label>Operador</label>
+              <select>
+                <option>se</option>
+                <option>enquanto</option>
+                <option>quando</option>
+              </select>
+            </div>
+            <div>
+              <label>Entrada</label>
+              <select>
+                <option>Trava</option>
+                <option>Destrava</option>
+                <option>Porta</option>
+                <option>Ignição</option>
+              </select>
+            </div>
+            <div>
+              <label>Estado (depende da entrada)</label>
+              <select>
+                <option>pulso detectado (trava/destrava)</option>
+                <option>aberta (porta)</option>
+                <option>fechada (porta)</option>
+                <option>ligado (ignição)</option>
+                <option>desligado (ignição)</option>
+              </select>
+            </div>
+            <div>
+              <label>Ação</label>
+              <select>
+                <option>ligar em</option>
+                <option>ligar</option>
+                <option>desligar em</option>
+                <option>desligar</option>
+              </select>
+            </div>
+            <div>
+              <label>Delay (s)</label>
+              <input type="number" placeholder="2" />
+            </div>
+            <div>
+              <label>Saída</label>
+              <select>
+                <option>Farol</option>
+                <option>DRL</option>
+                <option>Luz Cortesia</option>
+                <option>Luz Assoalho</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:10px;">
+            <div>
+              <label>Por quanto tempo (s)</label>
+              <input type="number" placeholder="60" />
+            </div>
+            <div>
+              <label>Operador lógico</label>
+              <select>
+                <option>AND</option>
+                <option>OR</option>
+                <option>—</option>
+              </select>
+            </div>
+          </div>
+          <div class="summary">Exemplo: se sinal trava ligado, ligar farol em 2s por 60s.</div>
+        </div>
+
+        <div class="form-row full">
+          <label>Descrição/Resumo da regra</label>
+          <textarea placeholder="Use este campo para descrever a lógica em linguagem natural."></textarea>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn">Salvar configuração</button>
+          <button class="btn secondary">Exportar JSON</button>
+          <button class="btn secondary">Limpar</button>
+        </div>
+
+        <div class="logic-line">
+          enquanto porta = aberta => ligar luz cortesia
+        </div>
+        <div class="logic-line">
+          se trava = ligado => ligar farol em 2s por 60s
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

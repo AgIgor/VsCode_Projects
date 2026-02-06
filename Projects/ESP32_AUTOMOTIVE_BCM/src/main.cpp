@@ -183,80 +183,23 @@ void saveConfig(const String& jsonData) {
   pushLog("Configuração salva com sucesso");
 }
 
-bool checkRule(const char* type, const char* value) {
-  if (!type || !value) return true;
-  if (strcmp(value, "any") == 0) return true;
-
-  if (strcmp(type, "porta") == 0) {
-    bool portaOpen = digitalRead(PIN_PORTA) == LOW; // LOW = porta aberta (pull-up)
-    if (strcmp(value, "open") == 0) return portaOpen;
-    if (strcmp(value, "closed") == 0) return !portaOpen;
-  }
-
-  if (strcmp(type, "ignicao") == 0) {
-    bool ignicaoOn = digitalRead(PIN_IGNICAO) == LOW; // LOW = ignição ligada (pull-up)
-    if (strcmp(value, "on") == 0) return ignicaoOn;
-    if (strcmp(value, "off") == 0) return !ignicaoOn;
-  }
-
-  if (strcmp(type, "trava") == 0) {
-    bool pressed = digitalRead(PIN_TRAVA) == LOW;
-    if (strcmp(value, "pressed") == 0) return pressed;
-    if (strcmp(value, "released") == 0) return !pressed;
-  }
-
-  if (strcmp(type, "destrava") == 0) {
-    bool pressed = digitalRead(PIN_DESTRAVA) == LOW;
-    if (strcmp(value, "pressed") == 0) return pressed;
-    if (strcmp(value, "released") == 0) return !pressed;
-  }
-
-  return true;
-}
-
 bool checkCondition(JsonObject conditions) {
-  if (conditions.isNull()) return true;
-
-  // Novo formato: mode + rules
-  if (conditions.containsKey("rules")) {
-    const char* mode = conditions["mode"] | "AND";
-    JsonArray rules = conditions["rules"].as<JsonArray>();
-    if (rules.size() == 0) return true;
-
-    bool isAnd = strcmp(mode, "AND") == 0;
-    if (isAnd) {
-      for (JsonObject rule : rules) {
-        const char* type = rule["type"] | "";
-        const char* value = rule["value"] | "any";
-        if (!checkRule(type, value)) return false;
-      }
-      return true;
-    }
-
-    // OR
-    for (JsonObject rule : rules) {
-      const char* type = rule["type"] | "";
-      const char* value = rule["value"] | "any";
-      if (checkRule(type, value)) return true;
-    }
-    return false;
-  }
-
-  // Formato antigo: porta/ignicao
+  // Verifica condição de porta
   const char* portaCond = conditions["porta"] | "any";
   if (strcmp(portaCond, "any") != 0) {
     bool portaOpen = digitalRead(PIN_PORTA) == LOW; // LOW = porta aberta (pull-up)
     if (strcmp(portaCond, "open") == 0 && !portaOpen) return false;
     if (strcmp(portaCond, "closed") == 0 && portaOpen) return false;
   }
-
+  
+  // Verifica condição de ignição
   const char* ignicaoCond = conditions["ignicao"] | "any";
   if (strcmp(ignicaoCond, "any") != 0) {
     bool ignicaoOn = digitalRead(PIN_IGNICAO) == LOW; // LOW = ignição ligada (pull-up)
     if (strcmp(ignicaoCond, "on") == 0 && !ignicaoOn) return false;
     if (strcmp(ignicaoCond, "off") == 0 && ignicaoOn) return false;
   }
-
+  
   return true;
 }
 
@@ -290,7 +233,6 @@ void processEvent(const char* eventName) {
       
       int ligarAfter = output["ligar"]["after"] | 0;
       int desligarAfter = output["desligar"]["after"] | 0;
-      int onFor = output["duracao"]["onFor"] | 0;
       
       unsigned long now = millis();
       
@@ -302,9 +244,6 @@ void processEvent(const char* eventName) {
       if (desligarAfter > 0) {
         outputStates[i].desligarTime = now + (desligarAfter * 1000);
         pushLogf("    %s: desligar após %ds", outputNames[i], desligarAfter);
-      } else if (onFor > 0 && ligarAfter > 0) {
-        outputStates[i].desligarTime = now + ((ligarAfter + onFor) * 1000);
-        pushLogf("    %s: duração ligada %ds", outputNames[i], onFor);
       }
     }
   }
