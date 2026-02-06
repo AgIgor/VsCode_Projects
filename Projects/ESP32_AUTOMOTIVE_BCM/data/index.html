@@ -171,6 +171,36 @@
       display: block;
     }
 
+    .conditions-builder {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .cond-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .cond-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .btn-icon:hover { background: rgba(239, 68, 68, 0.1); }
+
     .outputs-grid { 
       display: grid; 
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
@@ -530,7 +560,106 @@
       { key: 'pes', label: 'Luz dos pés' },
     ];
 
+    const CONDITION_TYPES = {
+      porta: {
+        label: 'Porta',
+        values: [
+          { value: 'any', label: 'Qualquer estado' },
+          { value: 'open', label: 'Aberta' },
+          { value: 'closed', label: 'Fechada' }
+        ]
+      },
+      ignicao: {
+        label: 'Ignição',
+        values: [
+          { value: 'any', label: 'Qualquer estado' },
+          { value: 'on', label: 'Ligada' },
+          { value: 'off', label: 'Desligada' }
+        ]
+      },
+      trava: {
+        label: 'Trava',
+        values: [
+          { value: 'any', label: 'Qualquer estado' },
+          { value: 'pressed', label: 'Pressionada' },
+          { value: 'released', label: 'Solta' }
+        ]
+      },
+      destrava: {
+        label: 'Destrava',
+        values: [
+          { value: 'any', label: 'Qualquer estado' },
+          { value: 'pressed', label: 'Pressionada' },
+          { value: 'released', label: 'Solta' }
+        ]
+      }
+    };
+
     let logicCounter = 0;
+
+    function buildConditionValueOptions(select, type, selectedValue) {
+      select.innerHTML = '';
+      const values = CONDITION_TYPES[type]?.values || [];
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.value;
+        opt.textContent = v.label;
+        select.appendChild(opt);
+      });
+      if (selectedValue) select.value = selectedValue;
+    }
+
+    function addConditionRow(id, ruleData = null) {
+      const list = document.getElementById(`${id}_conditions_list`);
+      if (!list) return;
+
+      const row = document.createElement('div');
+      row.className = 'cond-row';
+      row.dataset.logicId = id;
+
+      const typeSelect = document.createElement('select');
+      typeSelect.className = 'cond-type';
+      Object.keys(CONDITION_TYPES).forEach(type => {
+        const opt = document.createElement('option');
+        opt.value = type;
+        opt.textContent = CONDITION_TYPES[type].label;
+        typeSelect.appendChild(opt);
+      });
+
+      const valueSelect = document.createElement('select');
+      valueSelect.className = 'cond-value';
+
+      const defaultType = ruleData?.type || 'porta';
+      const defaultValue = ruleData?.value || 'any';
+      typeSelect.value = defaultType;
+      buildConditionValueOptions(valueSelect, defaultType, defaultValue);
+
+      typeSelect.addEventListener('change', () => {
+        buildConditionValueOptions(valueSelect, typeSelect.value, 'any');
+        updateCardSummary(id);
+        renderPreview();
+      });
+      valueSelect.addEventListener('change', () => {
+        updateCardSummary(id);
+        renderPreview();
+      });
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-icon';
+      removeBtn.type = 'button';
+      removeBtn.textContent = '✖';
+      removeBtn.title = 'Remover condição';
+      removeBtn.addEventListener('click', () => {
+        row.remove();
+        updateCardSummary(id);
+        renderPreview();
+      });
+
+      row.appendChild(typeSelect);
+      row.appendChild(valueSelect);
+      row.appendChild(removeBtn);
+      list.appendChild(row);
+    }
 
     function createLogicCard(id = null, data = null) {
       id = id || `logic_${++logicCounter}`;
@@ -601,47 +730,66 @@
       condLabel.textContent = '📋 Condições (opcional)';
       body.appendChild(condLabel);
 
-      const conditionsRow = document.createElement('div');
-      
-      const portaGroup = document.createElement('div');
-      portaGroup.className = 'form-group';
-      const portaLabel = document.createElement('label');
-      portaLabel.className = 'form-label';
-      portaLabel.textContent = 'Porta:';
-      const portaSelect = document.createElement('select');
-      portaSelect.id = `${id}_cond_porta`;
-      ['any', 'open', 'closed'].forEach(v => {
+      const modeGroup = document.createElement('div');
+      modeGroup.className = 'form-group';
+      const modeLabel = document.createElement('label');
+      modeLabel.className = 'form-label';
+      modeLabel.textContent = 'Combinação:';
+      const modeSelect = document.createElement('select');
+      modeSelect.id = `${id}_cond_mode`;
+      [
+        { value: 'AND', label: 'Todas as condições (E)' },
+        { value: 'OR', label: 'Qualquer condição (OU)' }
+      ].forEach(v => {
         const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'open' ? 'Aberta' : 'Fechada');
-        portaSelect.appendChild(opt);
+        opt.value = v.value;
+        opt.textContent = v.label;
+        modeSelect.appendChild(opt);
       });
-      if (data?.conditions?.porta) portaSelect.value = data.conditions.porta;
-      portaSelect.addEventListener('change', renderPreview);
-      portaGroup.appendChild(portaLabel);
-      portaGroup.appendChild(portaSelect);
-      conditionsRow.appendChild(portaGroup);
 
-      const ignicaoGroup = document.createElement('div');
-      ignicaoGroup.className = 'form-group';
-      const ignicaoLabel = document.createElement('label');
-      ignicaoLabel.className = 'form-label';
-      ignicaoLabel.textContent = 'Ignição:';
-      const ignicaoSelect = document.createElement('select');
-      ignicaoSelect.id = `${id}_cond_ignicao`;
-      ['any', 'on', 'off'].forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'on' ? 'Ligada' : 'Desligada');
-        ignicaoSelect.appendChild(opt);
+      const rules = [];
+      let modeValue = 'AND';
+      if (data?.conditions?.rules) {
+        modeValue = data.conditions.mode || 'AND';
+        rules.push(...data.conditions.rules);
+      } else if (data?.conditions) {
+        if (data.conditions.porta && data.conditions.porta !== 'any') {
+          rules.push({ type: 'porta', value: data.conditions.porta });
+        }
+        if (data.conditions.ignicao && data.conditions.ignicao !== 'any') {
+          rules.push({ type: 'ignicao', value: data.conditions.ignicao });
+        }
+      }
+      modeSelect.value = modeValue;
+      modeSelect.addEventListener('change', () => {
+        updateCardSummary(id);
+        renderPreview();
       });
-      if (data?.conditions?.ignicao) ignicaoSelect.value = data.conditions.ignicao;
-      ignicaoSelect.addEventListener('change', renderPreview);
-      ignicaoGroup.appendChild(ignicaoLabel);
-      ignicaoGroup.appendChild(ignicaoSelect);
-      conditionsRow.appendChild(ignicaoGroup);
-      
-      body.appendChild(conditionsRow);
+
+      modeGroup.appendChild(modeLabel);
+      modeGroup.appendChild(modeSelect);
+      body.appendChild(modeGroup);
+
+      const conditionsList = document.createElement('div');
+      conditionsList.className = 'conditions-builder';
+      conditionsList.id = `${id}_conditions_list`;
+      body.appendChild(conditionsList);
+
+      rules.forEach(r => addConditionRow(id, r));
+
+      const condActions = document.createElement('div');
+      condActions.className = 'cond-actions';
+      const addCondBtn = document.createElement('button');
+      addCondBtn.className = 'btn btn-small secondary';
+      addCondBtn.type = 'button';
+      addCondBtn.textContent = '+ Adicionar condição';
+      addCondBtn.addEventListener('click', () => {
+        addConditionRow(id, { type: 'porta', value: 'any' });
+        updateCardSummary(id);
+        renderPreview();
+      });
+      condActions.appendChild(addCondBtn);
+      body.appendChild(condActions);
 
       // Saídas
       const outputLabel = document.createElement('span');
@@ -660,8 +808,10 @@
         const outputData = data?.outputs?.[saida.key] || {};
         const ligarData = outputData.ligar || {};
         const desligarData = outputData.desligar || {};
+        const duracaoData = outputData.duracao || {};
         const ligarAfterVal = Math.max(0, Number(ligarData.after ?? outputData.after ?? 0));
         const desligarAfterVal = Math.max(0, Number(desligarData.after ?? 0));
+        const onForVal = Math.max(0, Number(duracaoData.onFor ?? 0));
         const enabledVal = outputData.enabled ?? false;
 
         const header = document.createElement('div');
@@ -768,6 +918,44 @@
 
         item.appendChild(delaysOff);
 
+        // BLOCO DURAÇÃO LIGADA
+        const duracaoTitle = document.createElement('div');
+        duracaoTitle.className = 'output-subtitle';
+        duracaoTitle.textContent = 'Duração ligada';
+        duracaoTitle.style.marginTop = '0.75rem';
+        item.appendChild(duracaoTitle);
+
+        const duracaoWrap = document.createElement('div');
+        duracaoWrap.className = 'output-delays';
+        duracaoWrap.style.gridTemplateColumns = '1fr';
+
+        const duracaoGroup = document.createElement('div');
+        duracaoGroup.className = 'form-group';
+        duracaoGroup.style.gridTemplateColumns = '1fr';
+        duracaoGroup.style.marginBottom = '0';
+
+        const duracaoLabel = document.createElement('label');
+        duracaoLabel.className = 'form-label';
+        duracaoLabel.style.minWidth = 'auto';
+        duracaoLabel.textContent = 'Por (s):';
+
+        const duracaoInput = document.createElement('input');
+        duracaoInput.type = 'number';
+        duracaoInput.id = `${id}_${saida.key}_duracao_onfor`;
+        duracaoInput.min = 0;
+        duracaoInput.max = 300;
+        duracaoInput.step = 1;
+        duracaoInput.value = onForVal;
+        duracaoInput.addEventListener('input', () => {
+          updateOutputHint(id, saida.key);
+          renderPreview();
+        });
+
+        duracaoGroup.appendChild(duracaoLabel);
+        duracaoGroup.appendChild(duracaoInput);
+        duracaoWrap.appendChild(duracaoGroup);
+        item.appendChild(duracaoWrap);
+
         const hint = document.createElement('div');
         hint.className = 'help-text output-hint';
         hint.id = `${id}_${saida.key}_hint`;
@@ -824,10 +1012,54 @@
       emptyState.style.display = hasLogics ? 'none' : 'block';
     }
 
+    function getConditionValueLabel(type, value) {
+      const opts = CONDITION_TYPES[type]?.values || [];
+      return opts.find(v => v.value === value)?.label || value;
+    }
+
+    function getConditionsFor(id) {
+      const mode = document.getElementById(`${id}_cond_mode`)?.value || 'AND';
+      const rules = [];
+      const list = document.getElementById(`${id}_conditions_list`);
+      if (list) {
+        list.querySelectorAll('.cond-row').forEach(row => {
+          const type = row.querySelector('.cond-type')?.value;
+          const value = row.querySelector('.cond-value')?.value || 'any';
+          if (type) rules.push({ type, value });
+        });
+      }
+      return { mode, rules };
+    }
+
+    function formatConditions(conditions) {
+      if (!conditions) return 'sem condições';
+      
+      if (conditions.rules && conditions.rules.length > 0) {
+        const parts = conditions.rules.map(r => {
+          const typeLabel = CONDITION_TYPES[r.type]?.label || r.type;
+          const valueLabel = getConditionValueLabel(r.type, r.value);
+          return `${typeLabel} = ${valueLabel}`;
+        });
+        const joiner = conditions.mode === 'OR' ? ' OU ' : ' E ';
+        return parts.join(joiner);
+      }
+
+      const legacyParts = [];
+      if (conditions.porta && conditions.porta !== 'any') {
+        legacyParts.push(`Porta = ${conditions.porta === 'open' ? 'Aberta' : 'Fechada'}`);
+      }
+      if (conditions.ignicao && conditions.ignicao !== 'any') {
+        legacyParts.push(`Ignição = ${conditions.ignicao === 'on' ? 'Ligada' : 'Desligada'}`);
+      }
+
+      return legacyParts.length ? legacyParts.join(' E ') : 'sem condições';
+    }
+
     function updateOutputHint(id, key) {
       const enabled = document.getElementById(`${id}_${key}_enabled`)?.checked ?? false;
       const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_ligar_after`)?.value ?? 0));
       const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_desligar_after`)?.value ?? 0));
+      const onFor = Math.max(0, Number(document.getElementById(`${id}_${key}_duracao_onfor`)?.value ?? 0));
       const hintEl = document.getElementById(`${id}_${key}_hint`);
       if (!hintEl) return;
 
@@ -841,8 +1073,12 @@
       if (ligarAfter === 0) partes.push('ligar desativado');
       else partes.push(`liga em ${ligarAfter}s`);
 
-      if (desligarAfter === 0) partes.push('desligar desativado');
-      else partes.push(`desliga em ${desligarAfter}s`);
+      if (desligarAfter === 0) {
+        if (onFor > 0 && ligarAfter > 0) partes.push(`duração ${onFor}s`);
+        else partes.push('desligar desativado');
+      } else {
+        partes.push(`desliga em ${desligarAfter}s`);
+      }
 
       hintEl.textContent = partes.join(' · ');
       updateCardSummary(id);
@@ -854,6 +1090,9 @@
       const summaryEl = document.getElementById(`${id}_summary`);
       if (!summaryEl) return;
 
+      const conds = getConditionsFor(id);
+      const condText = formatConditions(conds);
+
       const parts = [];
       SAIDAS.forEach(s => {
         const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
@@ -861,20 +1100,25 @@
         
         const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
         const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
-        if (ligarAfter === 0 && desligarAfter === 0) return;
+        const onFor = Math.max(0, Number(document.getElementById(`${id}_${s.key}_duracao_onfor`)?.value ?? 0));
+        if (ligarAfter === 0 && desligarAfter === 0 && onFor === 0) return;
 
         let desc = `${s.label}:`;
         if (ligarAfter === 0) desc += ' ligar desativado';
         else desc += ` liga em ${ligarAfter}s`;
 
-        if (desligarAfter === 0) desc += ' | desligar desativado';
-        else desc += ` | desliga em ${desligarAfter}s`;
+        if (desligarAfter === 0) {
+          if (onFor > 0 && ligarAfter > 0) desc += ` | duração ${onFor}s`;
+          else desc += ' | desligar desativado';
+        } else {
+          desc += ` | desliga em ${desligarAfter}s`;
+        }
         parts.push(desc);
       });
 
       summaryEl.textContent = parts.length
-        ? `${eventoLabel}: ${parts.join(' | ')}`
-        : `${eventoLabel}: nenhuma saída agendada`;
+        ? `${eventoLabel} (${condText}): ${parts.join(' | ')}`
+        : `${eventoLabel} (${condText}): nenhuma saída agendada`;
     }
 
     function readAllConfig() {
@@ -886,24 +1130,25 @@
         const evento = document.getElementById(`${id}_evento`)?.value;
         if (!evento) return;
         
-        const cond_porta = document.getElementById(`${id}_cond_porta`)?.value ?? 'any';
-        const cond_ignicao = document.getElementById(`${id}_cond_ignicao`)?.value ?? 'any';
+        const conditions = getConditionsFor(id);
         
         const outputs = {};
         SAIDAS.forEach(s => {
           const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
           const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
           const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
+          const onFor = Math.max(0, Number(document.getElementById(`${id}_${s.key}_duracao_onfor`)?.value ?? 0));
           outputs[s.key] = {
             enabled: enabled,
             ligar: { after: ligarAfter },
-            desligar: { after: desligarAfter }
+            desligar: { after: desligarAfter },
+            duracao: { onFor: onFor }
           };
         });
         
         logicas.push({
           evento,
-          conditions: { porta: cond_porta, ignicao: cond_ignicao },
+          conditions,
           outputs
         });
       });
@@ -931,20 +1176,8 @@
         console.log(`\n🔹 Lógica ${idx + 1}: ${eventoLabel}`);
         
         // Condições
-        const conds = [];
-        if (logic.conditions.porta !== 'any') {
-          const portaLabel = logic.conditions.porta === 'open' ? 'Porta aberta' : 'Porta fechada';
-          conds.push(portaLabel);
-        }
-        if (logic.conditions.ignicao !== 'any') {
-          const ignLabel = logic.conditions.ignicao === 'on' ? 'Ignição ligada' : 'Ignição desligada';
-          conds.push(ignLabel);
-        }
-        if (conds.length > 0) {
-          console.log(`   📋 Condições: ${conds.join(' + ')}`);
-        } else {
-          console.log('   📋 Condições: Nenhuma (sempre executar)');
-        }
+        const condText = formatConditions(logic.conditions);
+        console.log(`   📋 Condições: ${condText}`);
 
         // Saídas
         console.log('   💡 Ações:');
@@ -955,8 +1188,9 @@
           
           const ligar = out.ligar.after;
           const desligar = out.desligar.after;
+          const onFor = out.duracao?.onFor || 0;
           
-          if (ligar === 0 && desligar === 0) return;
+          if (ligar === 0 && desligar === 0 && onFor === 0) return;
           hasActions = true;
           
           let actionStr = `      • ${s.label}: `;
@@ -964,7 +1198,8 @@
           else if (ligar === 0) actionStr += 'ligar desativado';
           
           if (desligar > 0) actionStr += ` | desliga em ${desligar}s`;
-          else if (desligar === 0) actionStr += ' | desligar desativado';
+          else if (onFor > 0 && ligar > 0) actionStr += ` | duração ${onFor}s`;
+          else actionStr += ' | desligar desativado';
           
           console.log(actionStr);
         });
