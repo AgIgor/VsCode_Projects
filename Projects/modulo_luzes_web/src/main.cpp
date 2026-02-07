@@ -1,550 +1,583 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
-#include <Preferences.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 
-// ============= CONFIGURAÇÕES =============
-#define AP_PASSWORD "12345678"
-#define AUTH_USER "admin"
-#define AUTH_PASS "admin123"
-#define DEFAULT_SSID "BCM_ESP32"
-#define DEFAULT_BCM_NAME "BCM_ESP32"
+// Configurações WiFi (AP) - Altere para suas credenciais
+const char* ssid = "ESP32-Luzes";
+const char* password = "12345678";
 
-// ENTRADAS (Pull-up ativo em LOW)
-#define PIN_IGNICAO 13
-#define PIN_PORTA 14
-#define PIN_TRAVA 25
-#define PIN_DESTRAVA 26
+// Pinos de entrada (pull-up)
+#define PIN_TRAVA      25
+#define PIN_DESTRAVA   26
+#define PIN_PORTA      14
+#define PIN_IGNICAO    13
 
-// SAÍDAS
-#define PIN_FAROL 16
-#define PIN_DRL 17
-#define PIN_INTERNA 18
-#define PIN_PES 19
+// Pinos de saída
+#define PIN_LUZ_INTERNA  18
+#define PIN_LUZ_ASSOALHO 19
+#define PIN_FAROL        16
+#define PIN_DRL          17
 
-// FAIL-SAFE
-#define TIMEOUT_IGNICAO_OFF 600000  // 600 segundos (10 minutos) em ms
+// Servidor e WebSocket
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
 
-// ============= VARIÁVEIS GLOBAIS =============
-WebServer server(80);
-Preferences preferences;
+// Estados das entradas e saídas
+struct IOState {
+  bool trava;
+  bool destrava;
+  bool porta;
+  bool ignicao;
+  bool luzInterna;
+  bool luzAssoalho;
+  bool farol;
+  bool drl;
+} ioState;
 
-// Estado das entradas
-bool ignicaoAtual = false;
-bool ignicaoAnterior = false;
-bool portaAtual = false;
-bool portaAnterior = false;
-bool travaAtual = false;
-bool travaAnterior = false;
-bool destrabaAtual = false;
-bool destrabaAnterior = false;
-
-// Pulsos (detecção de borda)
-bool pulseTrava = false;
-bool pulseDestrava = false;
-
-// Timers
-unsigned long lastIgnicaoOnTime = 0;
-unsigned long timerFarol = 0;
-unsigned long timerDRL = 0;
-unsigned long timerInterna = 0;
-unsigned long timerPes = 0;
-
-// Estado das saídas
-bool farolState = false;
-bool drlState = false;
-bool internaState = false;
-bool pesState = false;
-
-// ============= ESTRUTURA DE REGRAS =============
-struct Regra {
-  String operador;      // "se", "enquanto", "quando"
-  String entrada;       // "trava", "destrava", "porta", "ignicao"
-  String estado;        // "pulso", "aberta", "fechada", "ligado", "desligado"
-  String acao;          // "ligar", "desligar", "ligar_em", "desligar_em"
-  int delay_acao;       // delay em segundos
-  String saida;         // "farol", "drl", "interna", "pes"
-  int duracao;          // por quanto tempo em segundos
-  String operadorLogico; // "AND", "OR", ""
-  bool ativo;           // regra ativa ou não
+// Estrutura de regra
+struct Condition {
+  String input;
+  bool state;
+  String logicOp;  // "AND", "OR", ou vazio
 };
 
-#define MAX_REGRAS 20
-Regra regras[MAX_REGRAS];
-int numRegras = 0;
+struct Action {
+  String output;
+  bool state;
+  int delay;
+  int duration;
+};
 
-// ============= FUNÇÕES DE LEITURA =============
-void lerEntradas() {
-  // Salvar estados anteriores
-  ignicaoAnterior = ignicaoAtual;
-  portaAnterior = portaAtual;
-  travaAnterior = travaAtual;
-  destrabaAnterior = destrabaAtual;
+struct ActionEntry {
+  Action action;
+  unsigned long delayTimer;
+  unsigned long durationTimer;
+};
+
+struct Rule {
+  String type;  // "se", "quando", "enquanto"
+  std::vector<Condition> conditions;
+  std::vector<ActionEntry> actions;
+  std::vector<ActionEntry> elseActions;
+  bool hasElse;       // Indica se tem "senao"
+  String original;
+  bool active;
+};
+
+std::vector<Rule> rules;
+
+// Detectores de pulso
+unsigned long lastTravaTime = 0;
+unsigned long lastDestravaTime = 0;
+const int PULSE_COOLDOWN = 500; // ms
+
+// Forward declarations
+void sendIOState();
+void applyOutput(String output, bool state);
+void evaluateRules();
+Rule parseRule(String line);
+
+// Função para ler entradas
+void readInputs() {
+  ioState.porta = !digitalRead(PIN_PORTA);        // Invertido por pull-up
+  ioState.ignicao = !digitalRead(PIN_IGNICAO);    // Invertido por pull-up
   
-  // Ler estados atuais (Pull-up, ativo em LOW)
-  ignicaoAtual = !digitalRead(PIN_IGNICAO);
-  portaAtual = !digitalRead(PIN_PORTA);
-  travaAtual = !digitalRead(PIN_TRAVA);
-  destrabaAtual = !digitalRead(PIN_DESTRAVA);
+  // Detecta pulsos de trava/destrava
+  if (!digitalRead(PIN_TRAVA) && (millis() - lastTravaTime > PULSE_COOLDOWN)) {
+    ioState.trava = true;
+    lastTravaTime = millis();
+    Serial.println("Pulso TRAVA detectado");
+  } else {
+    ioState.trava = false;
+  }
   
-  // Detectar pulsos (borda de subida)
-  pulseTrava = (!travaAnterior && travaAtual);
-  pulseDestrava = (!destrabaAnterior && destrabaAtual);
-  
-  // Atualizar timer de ignição
-  if (ignicaoAtual) {
-    lastIgnicaoOnTime = millis();
+  if (!digitalRead(PIN_DESTRAVA) && (millis() - lastDestravaTime > PULSE_COOLDOWN)) {
+    ioState.destrava = true;
+    lastDestravaTime = millis();
+    Serial.println("Pulso DESTRAVA detectado");
+  } else {
+    ioState.destrava = false;
   }
 }
 
-// ============= FUNÇÕES DE CONTROLE DE SAÍDAS =============
-void setSaida(String saida, bool estado) {
-  if (saida == "farol") {
-    digitalWrite(PIN_FAROL, estado);
-    farolState = estado;
-  } else if (saida == "drl") {
-    digitalWrite(PIN_DRL, estado);
-    drlState = estado;
-  } else if (saida == "interna") {
-    digitalWrite(PIN_INTERNA, estado);
-    internaState = estado;
-  } else if (saida == "pes") {
-    digitalWrite(PIN_PES, estado);
-    pesState = estado;
+// Função para aplicar saídas
+void applyOutput(String output, bool state) {
+  if (output == "luz-interna") {
+    digitalWrite(PIN_LUZ_INTERNA, state);
+    ioState.luzInterna = state;
+  } else if (output == "luz-assoalho") {
+    digitalWrite(PIN_LUZ_ASSOALHO, state);
+    ioState.luzAssoalho = state;
+  } else if (output == "farol") {
+    digitalWrite(PIN_FAROL, state);
+    ioState.farol = state;
+  } else if (output == "drl") {
+    digitalWrite(PIN_DRL, state);
+    ioState.drl = state;
+  }
+  
+  Serial.printf("Saída %s: %s\n", output.c_str(), state ? "HIGH" : "LOW");
+  
+  // Notifica clientes WebSocket
+  sendIOState();
+}
+
+// Avalia uma condição
+bool evaluateCondition(const Condition& cond) {
+  if (cond.input == "trava") return ioState.trava == cond.state;
+  if (cond.input == "destrava") return ioState.destrava == cond.state;
+  if (cond.input == "porta") return ioState.porta == cond.state;
+  if (cond.input == "ignicao") return ioState.ignicao == cond.state;
+  // Suporte a saídas como condições
+  if (cond.input == "luz-interna") return ioState.luzInterna == cond.state;
+  if (cond.input == "luz-assoalho") return ioState.luzAssoalho == cond.state;
+  if (cond.input == "farol") return ioState.farol == cond.state;
+  if (cond.input == "drl") return ioState.drl == cond.state;
+  return false;
+}
+
+// Avalia todas as condições de uma regra
+bool evaluateConditions(const std::vector<Condition>& conditions) {
+  if (conditions.empty()) return false;
+  
+  bool result = evaluateCondition(conditions[0]);
+  
+  for (size_t i = 1; i < conditions.size(); i++) {
+    bool condResult = evaluateCondition(conditions[i]);
+    String prevOp = conditions[i-1].logicOp;
+    
+    if (prevOp == "AND") {
+      result = result && condResult;
+    } else if (prevOp == "OR") {
+      result = result || condResult;
+    }
+  }
+  
+  return result;
+}
+
+// Executa uma ação com timers
+void executeActionEntry(ActionEntry& entry) {
+  unsigned long now = millis();
+  
+  if (entry.action.delay > 0 && entry.delayTimer == 0 && entry.durationTimer == 0) {
+    entry.delayTimer = now + (entry.action.delay * 1000);
+    return;
+  }
+  
+  if (entry.delayTimer > 0 && now < entry.delayTimer) {
+    return; // Aguardando delay
+  }
+  
+  if (entry.delayTimer > 0 && now >= entry.delayTimer) {
+    applyOutput(entry.action.output, entry.action.state);
+    entry.delayTimer = 0;
+    
+    if (entry.action.duration > 0) {
+      entry.durationTimer = now + (entry.action.duration * 1000);
+    }
+    return;
+  }
+  
+  if (entry.action.delay == 0) {
+    applyOutput(entry.action.output, entry.action.state);
+    
+    if (entry.action.duration > 0 && entry.durationTimer == 0) {
+      entry.durationTimer = now + (entry.action.duration * 1000);
+    }
   }
 }
 
-// ============= PROCESSAMENTO DE REGRAS =============
-void processarRegras() {
-  for (int i = 0; i < numRegras; i++) {
-    if (!regras[i].ativo) continue;
-    
-    bool condicao = false;
-    
-    // Avaliar condição
-    if (regras[i].entrada == "trava" && regras[i].estado == "pulso") {
-      condicao = pulseTrava;
-    } else if (regras[i].entrada == "destrava" && regras[i].estado == "pulso") {
-      condicao = pulseDestrava;
-    } else if (regras[i].entrada == "porta") {
-      if (regras[i].estado == "aberta") condicao = portaAtual;
-      else if (regras[i].estado == "fechada") condicao = !portaAtual;
-    } else if (regras[i].entrada == "ignicao") {
-      if (regras[i].estado == "ligado") condicao = ignicaoAtual;
-      else if (regras[i].estado == "desligado") condicao = !ignicaoAtual;
+void executeActions(std::vector<ActionEntry>& actions) {
+  for (auto& entry : actions) {
+    executeActionEntry(entry);
+  }
+}
+
+void resetActionDelays(std::vector<ActionEntry>& actions) {
+  for (auto& entry : actions) {
+    entry.delayTimer = 0;
+  }
+}
+
+// Processa timers de duração
+void processTimers() {
+  unsigned long now = millis();
+  
+  for (auto& rule : rules) {
+    for (auto& entry : rule.actions) {
+      if (entry.durationTimer > 0 && now >= entry.durationTimer) {
+        applyOutput(entry.action.output, !entry.action.state);
+        entry.durationTimer = 0;
+      }
     }
     
-    // Executar ação se condição verdadeira
-    if (condicao) {
-      if (regras[i].operador == "enquanto") {
-        // Enquanto: manter saída no estado enquanto condição for verdadeira
-        if (regras[i].acao == "ligar") {
-          setSaida(regras[i].saida, true);
-        } else if (regras[i].acao == "desligar") {
-          setSaida(regras[i].saida, false);
-        }
-      } else if (regras[i].operador == "se" || regras[i].operador == "quando") {
-        // Se/Quando: executar ação uma vez
-        if (regras[i].acao == "ligar" || regras[i].acao == "ligar_em") {
-          // TODO: implementar delay e duração com timers
-          setSaida(regras[i].saida, true);
-        } else if (regras[i].acao == "desligar" || regras[i].acao == "desligar_em") {
-          setSaida(regras[i].saida, false);
-        }
+    for (auto& entry : rule.elseActions) {
+      if (entry.durationTimer > 0 && now >= entry.durationTimer) {
+        applyOutput(entry.action.output, !entry.action.state);
+        entry.durationTimer = 0;
+      }
+    }
+  }
+}
+
+// Avalia todas as regras
+void evaluateRules() {
+  for (auto& rule : rules) {
+    if (evaluateConditions(rule.conditions)) {
+      if (rule.type == "enquanto") {
+        executeActions(rule.actions);
+      } else if (!rule.active) {
+        executeActions(rule.actions);
+        rule.active = true;
       }
     } else {
-      // Se condição falsa e é "enquanto", desligar
-      if (regras[i].operador == "enquanto" && regras[i].acao == "ligar") {
-        setSaida(regras[i].saida, false);
+      // Executa "senao" se existir
+      if (rule.hasElse && rule.active) {
+        executeActions(rule.elseActions);
+      }
+      
+      // Reseta regras do tipo "se" e "quando"
+      if (rule.type != "enquanto" && rule.active) {
+        rule.active = false;
+        resetActionDelays(rule.actions);
       }
     }
   }
 }
 
-// ============= FAIL-SAFE =============
-void verificarFailSafe() {
-  // Desligar todas as saídas se ignição OFF por muito tempo
-  if (!ignicaoAtual && (millis() - lastIgnicaoOnTime) > TIMEOUT_IGNICAO_OFF) {
-    setSaida("farol", false);
-    setSaida("drl", false);
-    setSaida("interna", false);
-    setSaida("pes", false);
-  }
-}
-
-// ============= WEB SERVER =============
-const char index_html[] PROGMEM = R"rawliteral(
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>BCM ESP32</title>
-<style>
-:root{--bg:#f6f7fb;--card:#fff;--text:#1c1f2a;--muted:#6b7280;--accent:#2563eb;--border:#e5e7eb;--chip:#eef2ff}
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
-header{padding:20px 16px;background:linear-gradient(120deg,#1d4ed8,#3b82f6);color:#fff}
-header h1{margin:0 0 4px;font-size:20px}
-header p{margin:0;opacity:.9;font-size:13px}
-.container{max-width:1200px;margin:0 auto;padding:16px 16px 60px}
-.grid{display:grid;grid-template-columns:1fr;gap:16px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(31,41,55,.05)}
-.card h2{margin:0 0 12px;font-size:15px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.form-row.full{grid-template-columns:1fr}
-label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px}
-select,input,button{width:100%;border-radius:8px;border:1px solid var(--border);padding:9px 10px;font-size:13px;background:#fff;color:var(--text)}
-.rules-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.rule{border:1px dashed var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafafa}
-.rule-title{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:8px}
-.rule-grid{display:grid;grid-template-columns:1fr;gap:8px}
-.chip{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--chip);color:#1e3a8a;font-size:11px}
-.io-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.io-item{display:flex;justify-content:space-between;align-items:center;padding:7px 9px;border-radius:8px;background:#f9fafb;border:1px solid var(--border);font-size:12px}
-.btn{background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600;padding:10px}
-.btn.secondary{background:#e5e7eb;color:#111827;font-weight:500}
-.btn.danger{background:#dc2626;color:#fff}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap}
-.btn-row button{flex:1;min-width:120px}
-.status{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
-.status.on{background:#10b981}
-.status.off{background:#6b7280}
-.hidden{display:none}
-@media(min-width:980px){.grid{grid-template-columns:1.1fr 1.6fr}.rule-grid{grid-template-columns:repeat(6,1fr)}}
-</style>
-</head>
-<body>
-<header>
-<h1>BCM ESP32 - Modulo Automatizador</h1>
-<p>Configure regras e monitore entradas/saídas</p>
-</header>
-<main class="container">
-<div class="grid">
-<section class="card">
-<h2>Status Entradas</h2>
-<div class="io-list">
-<div class="io-item"><span><span class="status off" id="st-trava"></span>Trava</span><strong>GPIO 25</strong></div>
-<div class="io-item"><span><span class="status off" id="st-destrava"></span>Destrava</span><strong>GPIO 26</strong></div>
-<div class="io-item"><span><span class="status off" id="st-porta"></span>Porta</span><strong>GPIO 14</strong></div>
-<div class="io-item"><span><span class="status off" id="st-ignicao"></span>Ignição</span><strong>GPIO 13</strong></div>
-</div>
-<h2 style="margin-top:14px">Status Saídas</h2>
-<div class="io-list">
-<div class="io-item"><span><span class="status off" id="st-farol"></span>Farol</span><strong>GPIO 16</strong></div>
-<div class="io-item"><span><span class="status off" id="st-drl"></span>DRL</span><strong>GPIO 17</strong></div>
-<div class="io-item"><span><span class="status off" id="st-interna"></span>Interna</span><strong>GPIO 18</strong></div>
-<div class="io-item"><span><span class="status off" id="st-pes"></span>Pés</span><strong>GPIO 19</strong></div>
-</div>
-</section>
-<section class="card">
-<div class="rules-header">
-<h2>Regras (<span id="rule-count">0</span>)</h2>
-<button class="btn" onclick="addRule()">+ Nova Regra</button>
-</div>
-<div id="rules-container"></div>
-<div class="btn-row" style="margin-top:12px">
-<button class="btn" onclick="saveConfig()">Salvar</button>
-<button class="btn secondary" onclick="loadConfig()">Recarregar</button>
-<button class="btn secondary" onclick="exportConfig()">Exportar</button>
-<button class="btn danger" onclick="clearAll()">Limpar Tudo</button>
-</div>
-</section>
-</div>
-</main>
-<script>
-let rules=[];
-let ruleIdCounter=0;
-function addRule(){
-const id=ruleIdCounter++;
-const rule={id,operador:'se',entrada:'porta',estado:'aberta',acao:'ligar',delay:0,saida:'interna',duracao:0,logico:'',ativo:true};
-rules.push(rule);
-renderRules();
-}
-function removeRule(id){
-rules=rules.filter(r=>r.id!==id);
-renderRules();
-}
-function updateRule(id,field,value){
-const rule=rules.find(r=>r.id===id);
-if(rule){
-rule[field]=value;
-if(field==='entrada'){
-if(value==='trava'||value==='destrava')rule.estado='pulso';
-else if(value==='porta')rule.estado='aberta';
-else if(value==='ignicao')rule.estado='ligado';
-}
-renderRules();
-}
-}
-function renderRules(){
-const container=document.getElementById('rules-container');
-container.innerHTML='';
-rules.forEach((r,idx)=>{
-const div=document.createElement('div');
-div.className='rule';
-const estadoOpts=getEstadoOptions(r.entrada);
-div.innerHTML=`
-<div class="rule-title">
-<span>Regra ${idx+1}</span>
-<button class="btn danger" style="padding:4px 10px;font-size:11px" onclick="removeRule(${r.id})">Remover</button>
-</div>
-<div class="rule-grid">
-<div><label>Operador</label>
-<select onchange="updateRule(${r.id},'operador',this.value)">
-<option ${r.operador==='se'?'selected':''}>se</option>
-<option ${r.operador==='enquanto'?'selected':''}>enquanto</option>
-<option ${r.operador==='quando'?'selected':''}>quando</option>
-</select></div>
-<div><label>Entrada</label>
-<select onchange="updateRule(${r.id},'entrada',this.value)">
-<option ${r.entrada==='porta'?'selected':''}>porta</option>
-<option ${r.entrada==='trava'?'selected':''}>trava</option>
-<option ${r.entrada==='destrava'?'selected':''}>destrava</option>
-<option ${r.entrada==='ignicao'?'selected':''}>ignicao</option>
-</select></div>
-<div><label>Estado</label>
-<select onchange="updateRule(${r.id},'estado',this.value)">${estadoOpts}</select></div>
-<div><label>Ação</label>
-<select onchange="updateRule(${r.id},'acao',this.value)">
-<option ${r.acao==='ligar'?'selected':''}>ligar</option>
-<option ${r.acao==='desligar'?'selected':''}>desligar</option>
-<option ${r.acao==='ligar_em'?'selected':''}>ligar_em</option>
-<option ${r.acao==='desligar_em'?'selected':''}>desligar_em</option>
-</select></div>
-<div><label>Delay (s)</label>
-<input type="number" value="${r.delay}" onchange="updateRule(${r.id},'delay',parseInt(this.value)||0)"/></div>
-<div><label>Saída</label>
-<select onchange="updateRule(${r.id},'saida',this.value)">
-<option ${r.saida==='farol'?'selected':''}>farol</option>
-<option ${r.saida==='drl'?'selected':''}>drl</option>
-<option ${r.saida==='interna'?'selected':''}>interna</option>
-<option ${r.saida==='pes'?'selected':''}>pes</option>
-</select></div>
-</div>
-<div class="form-row" style="margin-top:8px">
-<div><label>Duração (s)</label>
-<input type="number" value="${r.duracao}" onchange="updateRule(${r.id},'duracao',parseInt(this.value)||0)"/></div>
-<div><label>Op. Lógico</label>
-<select onchange="updateRule(${r.id},'logico',this.value)">
-<option ${r.logico===''?'selected':''}>—</option>
-<option ${r.logico==='AND'?'selected':''}>AND</option>
-<option ${r.logico==='OR'?'selected':''}>OR</option>
-</select></div>
-</div>`;
-container.appendChild(div);
-});
-document.getElementById('rule-count').textContent=rules.length;
-}
-function getEstadoOptions(entrada){
-if(entrada==='trava'||entrada==='destrava')return'<option>pulso</option>';
-if(entrada==='porta')return'<option>aberta</option><option>fechada</option>';
-if(entrada==='ignicao')return'<option>ligado</option><option>desligado</option>';
-return'';
-}
-function saveConfig(){
-fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules})})
-.then(r=>r.json()).then(d=>{alert(d.message||'Salvo com sucesso!')}).catch(e=>alert('Erro ao salvar'));
-}
-function loadConfig(){
-fetch('/api/config').then(r=>r.json()).then(d=>{rules=d.rules||[];ruleIdCounter=rules.length?Math.max(...rules.map(r=>r.id))+1:0;renderRules()}).catch(e=>console.error(e));
-}
-function exportConfig(){
-const blob=new Blob([JSON.stringify({rules},null,2)],{type:'application/json'});
-const url=URL.createObjectURL(blob);
-const a=document.createElement('a');
-a.href=url;
-a.download='bcm_config.json';
-a.click();
-}
-function clearAll(){
-if(confirm('Limpar todas as regras?')){rules=[];renderRules();}
-}
-function updateStatus(){
-fetch('/api/status').then(r=>r.json()).then(d=>{
-['trava','destrava','porta','ignicao','farol','drl','interna','pes'].forEach(k=>{
-const el=document.getElementById('st-'+k);
-if(el)el.className='status '+(d[k]?'on':'off');
-});
-}).catch(e=>console.error(e));
-}
-loadConfig();
-setInterval(updateStatus,1000);
-updateStatus();
-</script>
-</body>
-</html>
-)rawliteral";
-
-void handleRoot() {
-  server.send_P(200, "text/html", index_html);
-}
-
-void handleGetStatus() {
-  StaticJsonDocument<512> doc;
-  doc["ignicao"] = ignicaoAtual;
-  doc["porta"] = portaAtual;
-  doc["trava"] = travaAtual;
-  doc["destrava"] = destrabaAtual;
-  doc["farol"] = farolState;
-  doc["drl"] = drlState;
-  doc["interna"] = internaState;
-  doc["pes"] = pesState;
+// Parser de regra em texto
+Rule parseRule(String line) {
+  line.trim();
+  line.toLowerCase();
   
-  String json;
-  serializeJson(doc, json);
-  server.send(200, "application/json", json);
-}
-
-void handleGetConfig() {
-  DynamicJsonDocument doc(4096);
-  JsonArray rulesArray = doc.createNestedArray("rules");
+  Rule rule;
+  rule.active = false;
+  rule.hasElse = false;
+  rule.original = line;
   
-  for (int i = 0; i < numRegras; i++) {
-    JsonObject r = rulesArray.createNestedObject();
-    r["id"] = i;
-    r["operador"] = regras[i].operador;
-    r["entrada"] = regras[i].entrada;
-    r["estado"] = regras[i].estado;
-    r["acao"] = regras[i].acao;
-    r["delay"] = regras[i].delay_acao;
-    r["saida"] = regras[i].saida;
-    r["duracao"] = regras[i].duracao;
-    r["logico"] = regras[i].operadorLogico;
-    r["ativo"] = regras[i].ativo;
+  // Detecta tipo
+  if (line.startsWith("quando")) rule.type = "quando";
+  else if (line.startsWith("enquanto")) rule.type = "enquanto";
+  else rule.type = "se";
+  
+  // Divide por "entao" e "senao"
+  int entaoPos = line.indexOf("entao");
+  if (entaoPos < 0) entaoPos = line.indexOf("então");
+  if (entaoPos < 0) return rule;
+  
+  String condPart = line.substring(0, entaoPos);
+  String restPart = line.substring(entaoPos + 5);
+  
+  // Verifica se tem "senao"
+  int senaoPos = restPart.indexOf(" senao ");
+  if (senaoPos < 0) senaoPos = restPart.indexOf(" senão ");
+  
+  String actionPart;
+  String elseActionPart;
+  
+  if (senaoPos >= 0) {
+    rule.hasElse = true;
+    actionPart = restPart.substring(0, senaoPos);
+    elseActionPart = restPart.substring(senaoPos + 7);
+  } else {
+    actionPart = restPart;
   }
   
-  String json;
-  serializeJson(doc, json);
-  server.send(200, "application/json", json);
-}
-
-void handlePostConfig() {
-  if (!server.hasArg("plain")) {
-    server.send(400, "application/json", "{\"error\":\"Body vazio\"}");
-    return;
-  }
+  // Remove tipo da condição
+  condPart.replace("se ", "");
+  condPart.replace("quando ", "");
+  condPart.replace("enquanto ", "");
+  condPart.trim();
   
-  DynamicJsonDocument doc(4096);
-  DeserializationError error = deserializeJson(doc, server.arg("plain"));
-  
-  if (error) {
-    server.send(400, "application/json", "{\"error\":\"JSON inválido\"}");
-    return;
-  }
-  
-  JsonArray rulesArray = doc["rules"];
-  numRegras = 0;
-  
-  for (JsonObject r : rulesArray) {
-    if (numRegras >= MAX_REGRAS) break;
+  // Parse condições (simples: apenas uma condição por enquanto)
+  // Formato: "entrada == estado [and/or entrada == estado]"
+  int eqPos = condPart.indexOf("==");
+  if (eqPos > 0) {
+    Condition cond;
+    cond.input = condPart.substring(0, eqPos);
+    cond.input.trim();
     
-    regras[numRegras].operador = r["operador"].as<String>();
-    regras[numRegras].entrada = r["entrada"].as<String>();
-    regras[numRegras].estado = r["estado"].as<String>();
-    regras[numRegras].acao = r["acao"].as<String>();
-    regras[numRegras].delay_acao = r["delay"] | 0;
-    regras[numRegras].saida = r["saida"].as<String>();
-    regras[numRegras].duracao = r["duracao"] | 0;
-    regras[numRegras].operadorLogico = r["logico"].as<String>();
-    regras[numRegras].ativo = r["ativo"] | true;
-    numRegras++;
+    String stateStr = condPart.substring(eqPos + 2);
+    
+    // Detecta operador lógico
+    int andPos = stateStr.indexOf(" and ");
+    int orPos = stateStr.indexOf(" or ");
+    int ePos = stateStr.indexOf(" e ");
+    int ouPos = stateStr.indexOf(" ou ");
+    
+    if (andPos > 0 || ePos > 0) {
+      cond.logicOp = "AND";
+      int splitPos = andPos > 0 ? andPos : ePos;
+      stateStr = stateStr.substring(0, splitPos);
+    } else if (orPos > 0 || ouPos > 0) {
+      cond.logicOp = "OR";
+      int splitPos = orPos > 0 ? orPos : ouPos;
+      stateStr = stateStr.substring(0, splitPos);
+    }
+    
+    stateStr.trim();
+    cond.state = (stateStr == "low");
+    
+    rule.conditions.push_back(cond);
   }
   
-  // Salvar na memória flash
-  preferences.begin("bcm", false);
-  preferences.putInt("numRegras", numRegras);
+  auto parseActionSegment = [](String text, Action& action) -> bool {
+    text.trim();
+    int eqPos = text.indexOf("==");
+    if (eqPos <= 0) return false;
+    
+    action.output = text.substring(0, eqPos);
+    action.output.trim();
+    
+    String actionState = text.substring(eqPos + 2);
+    actionState.trim();
+    
+    int emPos = actionState.indexOf(" em ");
+    if (emPos > 0) {
+      String delayStr = actionState.substring(emPos + 4);
+      int sPos = delayStr.indexOf("s");
+      if (sPos > 0) {
+        action.delay = delayStr.substring(0, sPos).toInt();
+      }
+      actionState = actionState.substring(0, emPos);
+    }
+    
+    int porPos = actionState.indexOf(" por ");
+    if (porPos > 0) {
+      String durStr = actionState.substring(porPos + 5);
+      int sPos = durStr.indexOf("s");
+      if (sPos > 0) {
+        action.duration = durStr.substring(0, sPos).toInt();
+      }
+      actionState = actionState.substring(0, porPos);
+    }
+    
+    actionState.trim();
+    action.state = (actionState == "high");
+    return true;
+  };
   
-  for (int i = 0; i < numRegras; i++) {
-    String prefix = "r" + String(i) + "_";
-    preferences.putString((prefix + "op").c_str(), regras[i].operador);
-    preferences.putString((prefix + "ent").c_str(), regras[i].entrada);
-    preferences.putString((prefix + "est").c_str(), regras[i].estado);
-    preferences.putString((prefix + "aca").c_str(), regras[i].acao);
-    preferences.putInt((prefix + "del").c_str(), regras[i].delay_acao);
-    preferences.putString((prefix + "sai").c_str(), regras[i].saida);
-    preferences.putInt((prefix + "dur").c_str(), regras[i].duracao);
-    preferences.putString((prefix + "log").c_str(), regras[i].operadorLogico);
-    preferences.putBool((prefix + "ati").c_str(), regras[i].ativo);
+  auto parseActionList = [&](String text, std::vector<ActionEntry>& target) {
+    text.trim();
+    while (text.length() > 0) {
+      int ePos = text.indexOf(" e ");
+      int andPos = text.indexOf(" and ");
+      int splitPos = -1;
+      int splitLen = 0;
+      
+      if (ePos >= 0 && (andPos < 0 || ePos < andPos)) {
+        splitPos = ePos;
+        splitLen = 3;
+      } else if (andPos >= 0) {
+        splitPos = andPos;
+        splitLen = 5;
+      }
+      
+      String part;
+      if (splitPos >= 0) {
+        part = text.substring(0, splitPos);
+        text = text.substring(splitPos + splitLen);
+      } else {
+        part = text;
+        text = "";
+      }
+      
+      Action action = {};
+      if (parseActionSegment(part, action)) {
+        ActionEntry entry;
+        entry.action = action;
+        entry.delayTimer = 0;
+        entry.durationTimer = 0;
+        target.push_back(entry);
+      }
+    }
+  };
+  
+  // Parse ações
+  parseActionList(actionPart, rule.actions);
+  
+  // Parse ação do "senao" se existir
+  if (rule.hasElse) {
+    parseActionList(elseActionPart, rule.elseActions);
   }
   
-  preferences.end();
-  
-  Serial.println("Configuração salva: " + String(numRegras) + " regras");
-  server.send(200, "application/json", "{\"message\":\"Configuração salva com sucesso\"}");
+  return rule;
 }
 
-// ============= SETUP =============
+// Envia estado das I/O via WebSocket
+void sendIOState() {
+  StaticJsonDocument<256> doc;
+  doc["trava"] = ioState.trava;
+  doc["destrava"] = ioState.destrava;
+  doc["porta"] = ioState.porta;
+  doc["ignicao"] = ioState.ignicao;
+  doc["luzInterna"] = ioState.luzInterna;
+  doc["luzAssoalho"] = ioState.luzAssoalho;
+  doc["farol"] = ioState.farol;
+  doc["drl"] = ioState.drl;
+  
+  String json;
+  serializeJson(doc, json);
+  ws.textAll(json);
+}
+
+// Callbacks WebSocket
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
+               AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    Serial.printf("Cliente WebSocket #%u conectado\n", client->id());
+    // Envia estado atual
+    sendIOState();
+  } else if (type == WS_EVT_DISCONNECT) {
+    Serial.printf("Cliente WebSocket #%u desconectado\n", client->id());
+  } else if (type == WS_EVT_DATA) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->index == 0 && info->len == len) {
+      data[len] = 0;
+      String msg = (char*)data;
+      
+      StaticJsonDocument<1024> doc;
+      DeserializationError error = deserializeJson(doc, msg);
+      
+      if (!error) {
+        if (doc.containsKey("rules")) {
+          // Recebe novas regras
+          rules.clear();
+          String rulesText = doc["rules"].as<String>();
+          
+          int start = 0;
+          int end = rulesText.indexOf('\n');
+          
+          while (end >= 0) {
+            String line = rulesText.substring(start, end);
+            line.trim();
+            if (line.length() > 0 && !line.startsWith("//")) {
+              Rule rule = parseRule(line);
+              if (!rule.conditions.empty()) {
+                rules.push_back(rule);
+                Serial.println("Regra adicionada: " + line);
+              }
+            }
+            start = end + 1;
+            end = rulesText.indexOf('\n', start);
+          }
+          
+          // Última linha
+          String line = rulesText.substring(start);
+          line.trim();
+          if (line.length() > 0 && !line.startsWith("//")) {
+            Rule rule = parseRule(line);
+            if (!rule.conditions.empty()) {
+              rules.push_back(rule);
+              Serial.println("Regra adicionada: " + line);
+            }
+          }
+          
+          Serial.printf("Total de %d regra(s) carregadas\n", rules.size());
+        }
+        
+        // Controle manual de saídas
+        if (doc.containsKey("output")) {
+          String output = doc["output"].as<String>();
+          bool state = doc["state"].as<bool>();
+          applyOutput(output, state);
+          Serial.printf("Controle manual: %s = %s\n", output.c_str(), state ? "HIGH" : "LOW");
+        }
+      }
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n\nBCM ESP32 - Iniciando...");
+  Serial.println("\n\n=== Sistema de Controle de Luzes ===\n");
   
-  // Configurar pinos de entrada (Pull-up interno)
-  pinMode(PIN_IGNICAO, INPUT_PULLUP);
-  pinMode(PIN_PORTA, INPUT_PULLUP);
+  // Configura pinos de entrada (pull-up)
   pinMode(PIN_TRAVA, INPUT_PULLUP);
   pinMode(PIN_DESTRAVA, INPUT_PULLUP);
+  pinMode(PIN_PORTA, INPUT_PULLUP);
+  pinMode(PIN_IGNICAO, INPUT_PULLUP);
   
-  // Configurar pinos de saída
+  // Configura pinos de saída
+  pinMode(PIN_LUZ_INTERNA, OUTPUT);
+  pinMode(PIN_LUZ_ASSOALHO, OUTPUT);
   pinMode(PIN_FAROL, OUTPUT);
   pinMode(PIN_DRL, OUTPUT);
-  pinMode(PIN_INTERNA, OUTPUT);
-  pinMode(PIN_PES, OUTPUT);
   
-  // Desligar todas as saídas
+  // Inicializa saídas em LOW
+  digitalWrite(PIN_LUZ_INTERNA, LOW);
+  digitalWrite(PIN_LUZ_ASSOALHO, LOW);
   digitalWrite(PIN_FAROL, LOW);
   digitalWrite(PIN_DRL, LOW);
-  digitalWrite(PIN_INTERNA, LOW);
-  digitalWrite(PIN_PES, LOW);
   
-  // Iniciar WiFi em modo AP
+  // Inicializa LittleFS
+  if (!LittleFS.begin(true)) {
+    Serial.println("Erro ao montar LittleFS!");
+    return;
+  }
+  Serial.println("LittleFS montado com sucesso");
+  
+  // Inicia WiFi em modo AP
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(DEFAULT_SSID, AP_PASSWORD);
+  WiFi.softAP(ssid, password);
+  Serial.println("WiFi AP iniciado!");
+  Serial.print("AP SSID: ");
+  Serial.println(ssid);
+  Serial.print("AP IP: ");
+  Serial.println(WiFi.softAPIP());
   
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
+  // Configura WebSocket
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
   
-  // Configurar rotas do servidor web
-  server.on("/", handleRoot);
-  server.on("/api/status", handleGetStatus);
-  server.on("/api/config", HTTP_GET, handleGetConfig);
-  server.on("/api/config", HTTP_POST, handlePostConfig);
+  // Serve arquivos estáticos
+  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  
+  // Rota para obter estado
+  server.on("/state", HTTP_GET, [](AsyncWebServerRequest *request){
+    StaticJsonDocument<256> doc;
+    doc["trava"] = ioState.trava;
+    doc["destrava"] = ioState.destrava;
+    doc["porta"] = ioState.porta;
+    doc["ignicao"] = ioState.ignicao;
+    doc["luzInterna"] = ioState.luzInterna;
+    doc["luzAssoalho"] = ioState.luzAssoalho;
+    doc["farol"] = ioState.farol;
+    doc["drl"] = ioState.drl;
+    
+    String json;
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
   
   server.begin();
-  Serial.println("Web server iniciado");
-  
-  // Carregar configurações salvas
-  preferences.begin("bcm", false);
-  numRegras = preferences.getInt("numRegras", 0);
-  
-  for (int i = 0; i < numRegras; i++) {
-    String prefix = "r" + String(i) + "_";
-    regras[i].operador = preferences.getString((prefix + "op").c_str(), "se");
-    regras[i].entrada = preferences.getString((prefix + "ent").c_str(), "porta");
-    regras[i].estado = preferences.getString((prefix + "est").c_str(), "aberta");
-    regras[i].acao = preferences.getString((prefix + "aca").c_str(), "ligar");
-    regras[i].delay_acao = preferences.getInt((prefix + "del").c_str(), 0);
-    regras[i].saida = preferences.getString((prefix + "sai").c_str(), "interna");
-    regras[i].duracao = preferences.getInt((prefix + "dur").c_str(), 0);
-    regras[i].operadorLogico = preferences.getString((prefix + "log").c_str(), "");
-    regras[i].ativo = preferences.getBool((prefix + "ati").c_str(), true);
-  }
-  
-  preferences.end();
-  
-  Serial.println("Regras carregadas: " + String(numRegras));
-  Serial.println("Sistema pronto!");
+  Serial.println("Servidor HTTP iniciado!");
+  Serial.println("\nAcesse: http://" + WiFi.softAPIP().toString());
 }
 
-// ============= LOOP =============
+unsigned long lastCheck = 0;
+const int CHECK_INTERVAL = 100; // ms
+
 void loop() {
-  server.handleClient();
+  ws.cleanupClients();
   
-  lerEntradas();
-  processarRegras();
-  verificarFailSafe();
+  unsigned long now = millis();
+  if (now - lastCheck >= CHECK_INTERVAL) {
+    lastCheck = now;
+    
+    // Lê entradas
+    readInputs();
+    
+    // Avalia regras
+    evaluateRules();
+    
+    // Processa timers
+    processTimers();
+  }
   
-  delay(50);  // Debounce e não sobrecarregar o processador
+  delay(10);
 }

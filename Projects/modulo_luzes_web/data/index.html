@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle Luzes - Simulador</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 10px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .header h1 {
+      color: #2d3748;
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+    
+    .header p {
+      color: #718096;
+      font-size: 14px;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+    
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    
+    .card h2 {
+      color: #2d3748;
+      font-size: 18px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .io-grid {
+      display: grid;
+      gap: 10px;
+    }
+    
+    .io-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: #f7fafc;
+      border-radius: 10px;
+      border: 2px solid #e2e8f0;
+      transition: all 0.2s;
+    }
+    
+    .io-item.active {
+      background: #e6fffa;
+      border-color: #38b2ac;
+    }
+    
+    .io-item .label {
+      font-weight: 600;
+      color: #2d3748;
+      font-size: 14px;
+    }
+    
+    .io-item .pin {
+      font-size: 11px;
+      color: #a0aec0;
+      margin-top: 2px;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    .btn-pulse {
+      background: #fbbf24;
+      color: #78350f;
+    }
+    
+    .btn-pulse:hover {
+      background: #f59e0b;
+      transform: scale(0.98);
+    }
+    
+    .btn-pulse:active {
+      transform: scale(0.95);
+    }
+    
+    .btn-toggle {
+      background: #60a5fa;
+      color: white;
+    }
+    
+    .btn-toggle:hover {
+      background: #3b82f6;
+    }
+    
+    .btn-toggle.active {
+      background: #10b981;
+    }
+    
+    .status-indicator {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 3px solid #e2e8f0;
+      background: #cbd5e0;
+      transition: all 0.3s;
+      position: relative;
+    }
+    
+    .status-indicator.active {
+      background: #48bb78;
+      border-color: #38a169;
+      box-shadow: 0 0 20px rgba(72, 187, 120, 0.6);
+    }
+    
+    .status-indicator::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      transition: all 0.3s;
+    }
+    
+    .status-indicator.active::after {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .rules-section {
+      grid-column: 1 / -1;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: #718096;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .text-editor {
+      width: 100%;
+      min-height: 200px;
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      resize: vertical;
+      background: #1a202c;
+      color: #e2e8f0;
+    }
+    
+    .rule-visual {
+      background: #f7fafc;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 10px;
+      border: 2px solid #e2e8f0;
+    }
+    
+    .rule-visual.error {
+      border-color: #fc8181;
+      background: #fff5f5;
+    }
+    
+    .rule-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .rule-title {
+      font-weight: 600;
+      color: #2d3748;
+    }
+    
+    .form-group {
+      margin-bottom: 12px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: #718096;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    @media (min-width: 768px) {
+      .form-row.cols-4 {
+        grid-template-columns: 2fr 1fr 1fr 2fr;
+      }
+      
+      .form-row.cols-3 {
+        grid-template-columns: 2fr 1fr 2fr;
+      }
+    }
+    
+    select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 13px;
+      background: white;
+      color: #2d3748;
+    }
+    
+    .btn-action {
+      background: #667eea;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .btn-action:hover {
+      background: #5a67d8;
+    }
+    
+    .btn-danger {
+      background: #f56565;
+      color: white;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .btn-danger:hover {
+      background: #e53e3e;
+    }
+    
+    .btn-success {
+      background: #48bb78;
+      color: white;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .condition-group {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    
+    .console {
+      background: #1a202c;
+      color: #e2e8f0;
+      padding: 15px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    
+    .console-line {
+      margin-bottom: 5px;
+      padding: 3px 0;
+      border-bottom: 1px solid #2d3748;
+    }
+    
+    .console-line.info { color: #63b3ed; }
+    .console-line.success { color: #68d391; }
+    .console-line.warning { color: #fbd38d; }
+    .console-line.error { color: #fc8181; }
+    
+    .help-text {
+      font-size: 11px;
+      color: #a0aec0;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+    
+    .syntax-help {
+      background: #edf2f7;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #4a5568;
+    }
+    
+    .syntax-help code {
+      background: #2d3748;
+      color: #68d391;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚗 Controle Inteligente de Luzes</h1>
+      <p>Sistema de automação com regras programáveis e simulador em tempo real</p>
+    </div>
+    
+    <div class="grid">
+      <!-- Entradas -->
+      <div class="card">
+        <h2>📥 Entradas (Pull-up)</h2>
+        <div class="io-grid">
+          <div class="io-item" id="input-trava">
+            <div>
+              <div class="label">Trava</div>
+              <div class="pin">GPIO 12</div>
+            </div>
+            <button class="btn btn-pulse" onclick="pulseInput('trava')">PULSO</button>
+          </div>
+          
+          <div class="io-item" id="input-destrava">
+            <div>
+              <div class="label">Destrava</div>
+              <div class="pin">GPIO 13</div>
+            </div>
+            <button class="btn btn-pulse" onclick="pulseInput('destrava')">PULSO</button>
+          </div>
+          
+          <div class="io-item" id="input-porta">
+            <div>
+              <div class="label">Porta</div>
+              <div class="pin">GPIO 14</div>
+            </div>
+            <button class="btn btn-toggle" id="btn-porta" onclick="toggleInput('porta')">ABRIR</button>
+          </div>
+          
+          <div class="io-item" id="input-ignicao">
+            <div>
+              <div class="label">Ignição</div>
+              <div class="pin">GPIO 27</div>
+            </div>
+            <button class="btn btn-toggle" id="btn-ignicao" onclick="toggleInput('ignicao')">LIGAR</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Saídas -->
+      <div class="card">
+        <h2>📤 Saídas Digitais <span style="font-size: 12px; color: #718096;">(Controle Manual)</span></h2>
+        <div class="io-grid">
+          <div class="io-item" id="output-luz-interna">
+            <div>
+              <div class="label">Luz Interna</div>
+              <div class="pin">GPIO 25</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-luz-interna" onclick="toggleOutput('luz-interna')">ON</button>
+              <div class="status-indicator" id="status-luz-interna"></div>
+            </div>
+          </div>
+          
+          <div class="io-item" id="output-luz-assoalho">
+            <div>
+              <div class="label">Luz Assoalho</div>
+              <div class="pin">GPIO 26</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-luz-assoalho" onclick="toggleOutput('luz-assoalho')">ON</button>
+              <div class="status-indicator" id="status-luz-assoalho"></div>
+            </div>
+          </div>
+          
+          <div class="io-item" id="output-farol">
+            <div>
+              <div class="label">Farol</div>
+              <div class="pin">GPIO 32</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-farol" onclick="toggleOutput('farol')">ON</button>
+              <div class="status-indicator" id="status-farol"></div>
+            </div>
+          </div>
+          
+          <div class="io-item" id="output-drl">
+            <div>
+              <div class="label">DRL</div>
+              <div class="pin">GPIO 33</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-drl" onclick="toggleOutput('drl')">ON</button>
+              <div class="status-indicator" id="status-drl"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Regras -->
+      <div class="card rules-section">
+        <h2>⚙️ Programação de Regras</h2>
+        
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('text')">Modo Texto</button>
+          <button class="tab" onclick="switchTab('visual')">Modo Visual</button>
+        </div>
+        
+        <!-- Modo Texto -->
+        <div class="tab-content active" id="tab-text">
+          <div class="syntax-help">
+            <strong>Sintaxe:</strong><br>
+            <code>se|quando|enquanto</code> [condição] <code>entao</code> [ação] <code>e</code> [ação] <code>senao</code> [ação]<br>
+            <strong>Condições:</strong> <code>trava|destrava|porta|ignicao|luz-interna|luz-assoalho|farol|drl == low|high</code><br>
+            <strong>Operadores:</strong> <code>and|or|e|ou</code><br>
+            <strong>Ações:</strong> <code>luz-interna|luz-assoalho|farol|drl == high|low [em Xs] [por Ys]</code><br>
+            <strong>Exemplo:</strong> <code>se porta == low entao luz-interna == high senao luz-interna == low</code><br>
+            <strong>Exemplo 2:</strong> <code>quando destrava == low entao drl == low e farol == high</code>
+          </div>
+          
+          <div class="form-group">
+            <label>Regras (uma por linha)</label>
+            <textarea class="text-editor" id="rules-text" placeholder="se porta == low entao luz-interna == high senao luz-interna == low&#10;se ignicao == high entao farol == high senao farol == low&#10;quando destrava == low entao drl == low e farol == high"></textarea>
+          </div>
+          
+          <button class="btn btn-action" onclick="applyTextRules()">Aplicar Regras</button>
+        </div>
+        
+        <!-- Modo Visual -->
+        <div class="tab-content" id="tab-visual">
+          <div id="visual-rules"></div>
+          <button class="btn btn-action" onclick="addVisualRule()">+ Adicionar Regra</button>
+        </div>
+        
+        <!-- Console -->
+        <div class="console" id="console">
+          <div class="console-line info">Sistema inicializado. Aguardando regras...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Estado do sistema
+    let inputs = {
+      trava: false,
+      destrava: false,
+      porta: false,
+      ignicao: false
+    };
+    
+    let outputs = {
+      'luz-interna': false,
+      'luz-assoalho': false,
+      'farol': false,
+      'drl': false
+    };
+    
+    let rules = [];
+    let timers = {};
+    let visualRuleCount = 0;
+    
+    // Funções de simulação de entradas
+    function pulseInput(name) {
+      const item = document.getElementById(`input-${name}`);
+      item.classList.add('active');
+      inputs[name] = true;
+      
+      logConsole(`Pulso detectado: ${name}`, 'warning');
+      evaluateRules();
+      
+      setTimeout(() => {
+        inputs[name] = false;
+        item.classList.remove('active');
+      }, 300);
+    }
+    
+    function toggleInput(name) {
+      inputs[name] = !inputs[name];
+      const item = document.getElementById(`input-${name}`);
+      const btn = document.getElementById(`btn-${name}`);
+      
+      if (inputs[name]) {
+        item.classList.add('active');
+        btn.classList.add('active');
+        btn.textContent = name === 'porta' ? 'FECHAR' : 'DESLIGAR';
+      } else {
+        item.classList.remove('active');
+        btn.classList.remove('active');
+        btn.textContent = name === 'porta' ? 'ABRIR' : 'LIGAR';
+      }
+      
+      logConsole(`${name}: ${inputs[name] ? 'HIGH' : 'LOW'}`, 'info');
+      evaluateRules();
+    }
+    
+    // Funções de saída
+    function setOutput(name, state, delay = 0, duration = 0) {
+      // Cancela timer anterior se existir
+      if (timers[name]) {
+        clearTimeout(timers[name].timeout);
+        if (timers[name].durationTimeout) {
+          clearTimeout(timers[name].durationTimeout);
+        }
+      }
+      
+      if (delay > 0) {
+        logConsole(`Agendado: ${name} = ${state ? 'HIGH' : 'LOW'} em ${delay}s` + 
+                   (duration > 0 ? ` por ${duration}s` : ''), 'warning');
+        
+        timers[name] = {
+          timeout: setTimeout(() => {
+            applyOutput(name, state);
+            
+            if (duration > 0) {
+              timers[name].durationTimeout = setTimeout(() => {
+                applyOutput(name, !state);
+                logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'HIGH' : 'LOW'}`, 'info');
+              }, duration * 1000);
+            }
+          }, delay * 1000)
+        };
+      } else {
+        applyOutput(name, state);
+        
+        if (duration > 0) {
+          timers[name] = {
+            durationTimeout: setTimeout(() => {
+              applyOutput(name, !state);
+              logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'HIGH' : 'LOW'}`, 'info');
+            }, duration * 1000)
+          };
+        }
+      }
+    }
+    
+    function applyOutput(name, state) {
+      outputs[name] = state;
+      const indicator = document.getElementById(`status-${name}`);
+      const item = document.getElementById(`output-${name}`);
+      const btn = document.getElementById(`btn-${name}`);
+      
+      if (state) {
+        indicator.classList.add('active');
+        item.classList.add('active');
+        if (btn) {
+          btn.classList.add('active');
+          btn.textContent = 'OFF';
+        }
+      } else {
+        indicator.classList.remove('active');
+        item.classList.remove('active');
+        if (btn) {
+          btn.classList.remove('active');
+          btn.textContent = 'ON';
+        }
+      }
+      
+      logConsole(`Saída alterada: ${name} = ${state ? 'HIGH' : 'LOW'}`, 'success');
+    }
+    
+    // Função de controle manual de saídas
+    function toggleOutput(name) {
+      outputs[name] = !outputs[name];
+      applyOutput(name, outputs[name]);
+      logConsole(`Controle manual: ${name} = ${outputs[name] ? 'HIGH' : 'LOW'}`, 'info');
+    }
+    
+    // Parser de regras em texto
+    function parseTextRules(text) {
+      const lines = text.split('\n').filter(l => l.trim() && !l.trim().startsWith('//'));
+      const parsed = [];
+      
+      for (let line of lines) {
+        try {
+          const rule = parseRule(line);
+          if (rule) parsed.push(rule);
+        } catch (e) {
+          logConsole(`Erro ao parsear: ${line} - ${e.message}`, 'error');
+        }
+      }
+      
+      return parsed;
+    }
+    
+    function parseRule(line) {
+      line = line.toLowerCase().trim();
+      
+      // Extrai tipo de regra (se, quando, enquanto)
+      let type = 'se';
+      if (line.startsWith('quando')) type = 'quando';
+      else if (line.startsWith('enquanto')) type = 'enquanto';
+      
+      // Divide em condições e ações
+      const parts = line.split(/\s+(?:entao|então)\s+/);
+      if (parts.length !== 2) {
+        throw new Error('Formato inválido. Use: [tipo] [condições] entao [ação]');
+      }
+      
+      // Remove o tipo da condição
+      const conditionText = parts[0].replace(/^(se|quando|enquanto)\s+/, '');
+      let actionText = parts[1];
+      
+      // Verifica se tem senao
+      const senaoMatch = actionText.match(/^(.+?)\s+(?:senao|senão)\s+(.+)$/);
+      let elseActions = null;
+      
+      if (senaoMatch) {
+        actionText = senaoMatch[1];
+        elseActions = parseActions(senaoMatch[2]);
+      }
+      
+      // Parse condições
+      const conditions = parseConditions(conditionText);
+      
+      // Parse ação
+      const actions = parseActions(actionText);
+      
+      return {
+        type,
+        conditions,
+        actions,
+        elseActions,
+        original: line
+      };
+    }
+    
+    function parseConditions(text) {
+      // Separa por operadores lógicos mantendo-os
+      const tokens = text.split(/\s+(and|or|e|ou)\s+/);
+      const conditions = [];
+      
+      for (let i = 0; i < tokens.length; i += 2) {
+        const condition = parseCondition(tokens[i].trim());
+        if (condition) {
+          conditions.push(condition);
+          
+          // Adiciona operador se não for a última condição
+          if (i + 1 < tokens.length) {
+            const op = tokens[i + 1].toLowerCase();
+            condition.operator = (op === 'and' || op === 'e') ? 'AND' : 'OR';
+          }
+        }
+      }
+      
+      return conditions;
+    }
+    
+    function parseCondition(text) {
+      const match = text.match(/^(trava|destrava|porta|ignicao|ignição|luz-interna|luz-assoalho|farol|drl)\s*==\s*(low|high)$/);
+      if (!match) return null;
+      
+      return {
+        input: match[1] === 'ignição' ? 'ignicao' : match[1],
+        state: match[2] === 'low'
+      };
+    }
+    
+    function parseAction(text) {
+      const match = text.match(/^(luz-interna|luz-assoalho|farol|drl)\s*==\s*(low|high)(?:\s+em\s+(\d+)s)?(?:\s+por\s+(\d+)s)?$/);
+      if (!match) {
+        throw new Error('Formato de ação inválido');
+      }
+      
+      return {
+        output: match[1],
+        state: match[2] === 'high',
+        delay: match[3] ? parseInt(match[3]) : 0,
+        duration: match[4] ? parseInt(match[4]) : 0
+      };
+    }
+    
+    function parseActions(text) {
+      const parts = text.split(/\s+(?:e|and)\s+/);
+      return parts.map(part => parseAction(part.trim()));
+    }
+    
+    // Avaliação de regras
+    function evaluateRules() {
+      for (let rule of rules) {
+        const condResult = evaluateConditions(rule.conditions);
+        
+        if (condResult) {
+          executeActions(rule.actions);
+          
+          if (rule.type === 'se' || rule.type === 'quando') {
+            // Regras "se" e "quando" são executadas uma vez
+            logConsole(`Regra ativada: ${rule.original}`, 'success');
+          }
+        } else if (rule.elseActions) {
+          // Executa ação do "senao"
+          executeActions(rule.elseActions);
+          logConsole(`Regra (senao) ativada: ${rule.original}`, 'success');
+        }
+      }
+    }
+    
+    function evaluateConditions(conditions) {
+      if (conditions.length === 0) return false;
+      
+      let result = evaluateCondition(conditions[0]);
+      
+      for (let i = 1; i < conditions.length; i++) {
+        const condition = conditions[i];
+        const condResult = evaluateCondition(condition);
+        const prevOp = conditions[i - 1].operator || 'AND';
+        
+        if (prevOp === 'AND') {
+          result = result && condResult;
+        } else {
+          result = result || condResult;
+        }
+      }
+      
+      return result;
+    }
+    
+    function evaluateCondition(condition) {
+      const inputValue = inputs[condition.input] !== undefined ? inputs[condition.input] : outputs[condition.input];
+      return inputValue === condition.state;
+    }
+    
+    function executeAction(action) {
+      setOutput(action.output, action.state, action.delay, action.duration);
+    }
+    
+    function executeActions(actions) {
+      if (!actions || actions.length === 0) return;
+      actions.forEach(action => executeAction(action));
+    }
+    
+    // Aplicar regras do modo texto
+    function applyTextRules() {
+      const text = document.getElementById('rules-text').value;
+      rules = parseTextRules(text);
+      
+      if (rules.length > 0) {
+        logConsole(`${rules.length} regra(s) carregada(s) com sucesso!`, 'success');
+        evaluateRules();
+      } else {
+        logConsole('Nenhuma regra válida encontrada', 'warning');
+      }
+    }
+    
+    // Modo visual
+    function addVisualRule() {
+      visualRuleCount++;
+      const container = document.getElementById('visual-rules');
+      
+      const ruleHtml = `
+        <div class="rule-visual" id="vrule-${visualRuleCount}">
+          <div class="rule-header">
+            <span class="rule-title">Regra #${visualRuleCount}</span>
+            <button class="btn btn-danger" onclick="removeVisualRule(${visualRuleCount})">Remover</button>
+          </div>
+          
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="vtype-${visualRuleCount}">
+              <option value="se">Se (executa uma vez)</option>
+              <option value="quando">Quando (executa ao mudar)</option>
+              <option value="enquanto">Enquanto (mantém estado)</option>
+            </select>
+          </div>
+          
+          <div class="condition-group">
+            <div class="form-row cols-3">
+              <div class="form-group">
+                <label>Entrada/Saída</label>
+                <select id="vinput-${visualRuleCount}">
+                  <optgroup label="Entradas">
+                    <option value="trava">Trava</option>
+                    <option value="destrava">Destrava</option>
+                    <option value="porta">Porta</option>
+                    <option value="ignicao">Ignição</option>
+                  </optgroup>
+                  <optgroup label="Saídas (ler estado)">
+                    <option value="luz-interna">Luz Interna</option>
+                    <option value="luz-assoalho">Luz Assoalho</option>
+                    <option value="farol">Farol</option>
+                    <option value="drl">DRL</option>
+                  </optgroup>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label>Estado</label>
+                <select id="vstate-${visualRuleCount}">
+                  <option value="low">LOW</option>
+                  <option value="high">HIGH</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label>Operador</label>
+                <select id="vop-${visualRuleCount}">
+                  <option value="none">Nenhum</option>
+                  <option value="AND">AND</option>
+                  <option value="OR">OR</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-row cols-4">
+            <div class="form-group">
+              <label>Saída</label>
+              <select id="voutput-${visualRuleCount}">
+                <option value="luz-interna">Luz Interna</option>
+                <option value="luz-assoalho">Luz Assoalho</option>
+                <option value="farol">Farol</option>
+                <option value="drl">DRL</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Ação</label>
+              <select id="vaction-${visualRuleCount}">
+                <option value="high">HIGH</option>
+                <option value="low">LOW</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Delay (s)</label>
+              <input type="number" id="vdelay-${visualRuleCount}" value="0" min="0">
+            </div>
+            
+            <div class="form-group">
+              <label>Duração (s)</label>
+              <input type="number" id="vduration-${visualRuleCount}" value="0" min="0">
+            </div>
+          </div>
+          
+          <button class="btn btn-success" onclick="applyVisualRule(${visualRuleCount})">Aplicar Esta Regra</button>
+        </div>
+      `;
+      
+      container.insertAdjacentHTML('beforeend', ruleHtml);
+    }
+    
+    function removeVisualRule(id) {
+      const rule = document.getElementById(`vrule-${id}`);
+      if (rule) rule.remove();
+    }
+    
+    function applyVisualRule(id) {
+      const type = document.getElementById(`vtype-${id}`).value;
+      const input = document.getElementById(`vinput-${id}`).value;
+      const state = document.getElementById(`vstate-${id}`).value;
+      const output = document.getElementById(`voutput-${id}`).value;
+      const action = document.getElementById(`vaction-${id}`).value;
+      const delay = parseInt(document.getElementById(`vdelay-${id}`).value) || 0;
+      const duration = parseInt(document.getElementById(`vduration-${id}`).value) || 0;
+      
+      const rule = {
+        type,
+        conditions: [{
+          input,
+          state: state === 'low'
+        }],
+        actions: [{
+          output,
+          state: action === 'high',
+          delay,
+          duration
+        }],
+        elseActions: null,
+        original: `${type} ${input} == ${state} entao ${output} == ${action}` +
+                  (delay > 0 ? ` em ${delay}s` : '') +
+                  (duration > 0 ? ` por ${duration}s` : '')
+      };
+      
+      rules.push(rule);
+      logConsole(`Regra visual #${id} adicionada!`, 'success');
+      evaluateRules();
+    }
+    
+    // Funções auxiliares
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+    
+    function logConsole(message, type = 'info') {
+      const console = document.getElementById('console');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const line = document.createElement('div');
+      line.className = `console-line ${type}`;
+      line.textContent = `[${time}] ${message}`;
+      console.appendChild(line);
+      console.scrollTop = console.scrollHeight;
+      
+      // Limita a 50 linhas
+      while (console.children.length > 50) {
+        console.removeChild(console.firstChild);
+      }
+    }
+    
+    // Inicialização
+    logConsole('Sistema pronto! Digite suas regras ou use o modo visual.', 'success');
+    
+    // Exemplo de regras pré-carregadas
+    const exampleRules = `// Exemplos com "senao" e multi-acoes
+  se porta == low entao luz-interna == high senao luz-interna == low
+  se ignicao == high entao farol == high em 2s senao farol == low
+  quando destrava == low entao drl == low e farol == high`;
+    
+    document.getElementById('rules-text').value = exampleRules;
+  </script>
+</body>
+</html>

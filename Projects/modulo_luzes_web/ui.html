@@ -14,6 +14,7 @@
       --accent: #2563eb;
       --border: #e5e7eb;
       --chip: #eef2ff;
+      --soft: #f9fafb;
     }
     * { box-sizing: border-box; }
     body {
@@ -94,10 +95,27 @@
       color: var(--muted);
       margin-bottom: 10px;
     }
+    .conditions-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+    .btn.small {
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+      width: auto;
+    }
     .rule-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
+    }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
     }
     .chip {
       display: inline-flex;
@@ -121,9 +139,27 @@
       align-items: center;
       padding: 8px 10px;
       border-radius: 10px;
-      background: #f9fafb;
+      background: var(--soft);
       border: 1px solid var(--border);
       font-size: 13px;
+    }
+    .conditions {
+      padding: 10px;
+      border-radius: 10px;
+      background: var(--soft);
+      border: 1px solid var(--border);
+    }
+    .condition-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .condition-join {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
     }
     .btn {
       background: var(--accent);
@@ -157,13 +193,15 @@
     }
     @media (min-width: 980px) {
       .grid { grid-template-columns: 1.1fr 1.6fr; }
-      .rule-grid { grid-template-columns: repeat(6, 1fr); }
+      .rule-grid { grid-template-columns: repeat(2, 1fr); }
+      .action-grid { grid-template-columns: repeat(4, 1fr); }
+      .condition-row { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Modulo Automatizador de Luzes</h1>
+    <h1>Módulo Automatizador de Luzes</h1>
     <p>Configure regras, timers e modos de acionamento das luzes do veículo.</p>
   </header>
 
@@ -230,7 +268,7 @@
           </div>
           <div class="rule-grid">
             <div>
-              <label>Operador</label>
+              <label>Operador principal</label>
               <select>
                 <option>enquanto</option>
                 <option>se</option>
@@ -238,24 +276,95 @@
               </select>
             </div>
             <div>
-              <label>Entrada</label>
+              <label>Prioridade (1 = maior)</label>
+              <input type="number" min="1" value="1" />
+            </div>
+          </div>
+
+          <div class="conditions">
+            <div class="condition-row">
+              <div>
+                <label>Condição 1 - Entrada</label>
+                <select>
+                  <option>Porta</option>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                  <option>Ignição</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 1 - Estado</label>
+                <select>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>pulso detectado (trava/destrava)</option>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                </select>
+              </div>
+            </div>
+            <div class="condition-join">
+              <label>Operador lógico</label>
               <select>
-                <option>Porta</option>
-                <option>Trava</option>
-                <option>Destrava</option>
-                <option>Ignição</option>
+                <option>AND</option>
+                <option>OR</option>
               </select>
             </div>
-            <div>
-              <label>Estado (depende da entrada)</label>
+            <div class="condition-row">
+              <div>
+                <label>Condição 2 - Entrada</label>
+                <select>
+                  <option>Ignição</option>
+                  <option>Porta</option>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 2 - Estado</label>
+                <select>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>pulso detectado (trava/destrava)</option>
+                </select>
+              </div>
+            </div>
+            <div class="condition-join">
+              <label>Operador lógico</label>
               <select>
-                <option>pulso detectado (trava/destrava)</option>
-                <option>aberta (porta)</option>
-                <option>fechada (porta)</option>
-                <option>ligado (ignição)</option>
-                <option>desligado (ignição)</option>
+                <option>AND</option>
+                <option>OR</option>
               </select>
             </div>
+            <div class="condition-row">
+              <div>
+                <label>Condição 3 - Entrada</label>
+                <select>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                  <option>Porta</option>
+                  <option>Ignição</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 3 - Estado</label>
+                <select>
+                  <option>pulso detectado (trava/destrava)</option>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                </select>
+              </div>
+            </div>
+            <div class="conditions-footer">
+              <button class="btn secondary small" type="button">Adicionar condição</button>
+            </div>
+          </div>
+
+          <div class="action-grid">
             <div>
               <label>Ação</label>
               <select>
@@ -270,6 +379,10 @@
               <input type="number" placeholder="0" />
             </div>
             <div>
+              <label>Por quanto tempo (s)</label>
+              <input type="number" placeholder="0" />
+            </div>
+            <div>
               <label>Saída</label>
               <select>
                 <option>Luz Cortesia</option>
@@ -279,21 +392,7 @@
               </select>
             </div>
           </div>
-          <div class="form-row" style="margin-top:10px;">
-            <div>
-              <label>Por quanto tempo (s)</label>
-              <input type="number" placeholder="0" />
-            </div>
-            <div>
-              <label>Operador lógico</label>
-              <select>
-                <option>—</option>
-                <option>AND</option>
-                <option>OR</option>
-              </select>
-            </div>
-          </div>
-          <div class="summary">Exemplo: enquanto porta aberta, ligar luz cortesia.</div>
+          <div class="summary">Exemplo: enquanto porta aberta AND ignição desligada, ligar luz cortesia.</div>
         </div>
 
         <div class="rule">
@@ -303,7 +402,7 @@
           </div>
           <div class="rule-grid">
             <div>
-              <label>Operador</label>
+              <label>Operador principal</label>
               <select>
                 <option>se</option>
                 <option>enquanto</option>
@@ -311,24 +410,95 @@
               </select>
             </div>
             <div>
-              <label>Entrada</label>
+              <label>Prioridade (1 = maior)</label>
+              <input type="number" min="1" value="2" />
+            </div>
+          </div>
+
+          <div class="conditions">
+            <div class="condition-row">
+              <div>
+                <label>Condição 1 - Entrada</label>
+                <select>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                  <option>Porta</option>
+                  <option>Ignição</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 1 - Estado</label>
+                <select>
+                  <option>pulso detectado (trava/destrava)</option>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                </select>
+              </div>
+            </div>
+            <div class="condition-join">
+              <label>Operador lógico</label>
               <select>
-                <option>Trava</option>
-                <option>Destrava</option>
-                <option>Porta</option>
-                <option>Ignição</option>
+                <option>AND</option>
+                <option>OR</option>
               </select>
             </div>
-            <div>
-              <label>Estado (depende da entrada)</label>
+            <div class="condition-row">
+              <div>
+                <label>Condição 2 - Entrada</label>
+                <select>
+                  <option>Ignição</option>
+                  <option>Porta</option>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 2 - Estado</label>
+                <select>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>pulso detectado (trava/destrava)</option>
+                </select>
+              </div>
+            </div>
+            <div class="condition-join">
+              <label>Operador lógico</label>
               <select>
-                <option>pulso detectado (trava/destrava)</option>
-                <option>aberta (porta)</option>
-                <option>fechada (porta)</option>
-                <option>ligado (ignição)</option>
-                <option>desligado (ignição)</option>
+                <option>AND</option>
+                <option>OR</option>
               </select>
             </div>
+            <div class="condition-row">
+              <div>
+                <label>Condição 3 - Entrada</label>
+                <select>
+                  <option>Porta</option>
+                  <option>Trava</option>
+                  <option>Destrava</option>
+                  <option>Ignição</option>
+                </select>
+              </div>
+              <div>
+                <label>Condição 3 - Estado</label>
+                <select>
+                  <option>aberta (porta)</option>
+                  <option>fechada (porta)</option>
+                  <option>pulso detectado (trava/destrava)</option>
+                  <option>ligado (ignição)</option>
+                  <option>desligado (ignição)</option>
+                </select>
+              </div>
+            </div>
+            <div class="conditions-footer">
+              <button class="btn secondary small" type="button">Adicionar condição</button>
+            </div>
+          </div>
+
+          <div class="action-grid">
             <div>
               <label>Ação</label>
               <select>
@@ -343,6 +513,10 @@
               <input type="number" placeholder="2" />
             </div>
             <div>
+              <label>Por quanto tempo (s)</label>
+              <input type="number" placeholder="60" />
+            </div>
+            <div>
               <label>Saída</label>
               <select>
                 <option>Farol</option>
@@ -352,21 +526,7 @@
               </select>
             </div>
           </div>
-          <div class="form-row" style="margin-top:10px;">
-            <div>
-              <label>Por quanto tempo (s)</label>
-              <input type="number" placeholder="60" />
-            </div>
-            <div>
-              <label>Operador lógico</label>
-              <select>
-                <option>AND</option>
-                <option>OR</option>
-                <option>—</option>
-              </select>
-            </div>
-          </div>
-          <div class="summary">Exemplo: se sinal trava ligado, ligar farol em 2s por 60s.</div>
+          <div class="summary">Exemplo: se trava pulso AND ignição ligada OR porta aberta, ligar farol em 2s por 60s.</div>
         </div>
 
         <div class="form-row full">
@@ -381,10 +541,10 @@
         </div>
 
         <div class="logic-line">
-          enquanto porta = aberta => ligar luz cortesia
+          enquanto porta = aberta AND ignição = desligada => ligar luz cortesia
         </div>
         <div class="logic-line">
-          se trava = ligado => ligar farol em 2s por 60s
+          se trava = pulso AND ignição = ligado OR porta = aberta => ligar farol em 2s por 60s
         </div>
       </section>
     </div>

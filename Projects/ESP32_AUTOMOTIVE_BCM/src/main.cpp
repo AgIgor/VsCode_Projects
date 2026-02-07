@@ -4,7 +4,6 @@
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
-#include <DNSServer.h>
 
 // ============= CONFIGURAÇÕES =============
 #define AP_PASSWORD "12345678"
@@ -44,7 +43,6 @@ struct InputState {
 
 // ============= VARIÁVEIS GLOBAIS =============
 AsyncWebServer server(80);
-DNSServer dnsServer;
 JsonDocument configDoc;
 
 // WiFi e BCM configuráveis
@@ -109,7 +107,6 @@ void enableWiFi() {
 
 void disableWiFi() {
   if (!wifiEnabled) return;
-  dnsServer.stop();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
   wifiEnabled = false;
@@ -271,8 +268,56 @@ void updateOutputs() {
   }
 }
 
+void handleEvent(const char* eventName) {
+  if (strcmp(eventName, "ignicao_on") == 0) {
+    processEvent("ignicao_on");
+    ignicaoOffTimeoutActive = false;
+    failsafeTriggered = false;
+    pushLog("✓ Ignição ligada - fail-safe desativado");
+    
+    // Contador de ligadas para toggle WiFi
+    unsigned long now = millis();
+    if (now - lastIgnicaoToggle > IGNICAO_TOGGLE_WINDOW) {
+      ignicaoToggleCount = 0; // Reset se passou muito tempo
+    }
+    ignicaoToggleCount++;
+    lastIgnicaoToggle = now;
+    
+    if (ignicaoToggleCount >= 5) {
+      if (wifiEnabled) {
+        disableWiFi();
+      } else {
+        enableWiFi();
+      }
+      ignicaoToggleCount = 0;
+    } else {
+      pushLogf("🔑 Ignição ligada %d/5 (toggle WiFi)", ignicaoToggleCount);
+    }
+    return;
+  }
+  
+  if (strcmp(eventName, "ignicao_off") == 0) {
+    processEvent("ignicao_off");
+    ignicaoOffTime = millis();
+    ignicaoOffTimeoutActive = true;
+    failsafeTriggered = false;
+    pushLogf("⏱️  Ignição desligada - fail-safe ativo em %d segundos", TIMEOUT_IGNICAO_OFF/1000);
+    return;
+  }
+  
+  processEvent(eventName);
+}
+
 void checkInputs() {
   unsigned long now = millis();
+  bool anyChange = false;
+  
+  bool evIgnicaoOn = false;
+  bool evIgnicaoOff = false;
+  bool evPortaAbriu = false;
+  bool evPortaFechou = false;
+  bool evTravou = false;
+  bool evDestravou = false;
   
   for (int i = 0; i < 4; i++) {
     bool reading = digitalRead(inputPins[i]);
@@ -283,57 +328,43 @@ void checkInputs() {
         inputStates[i].previous = inputStates[i].current;
         inputStates[i].current = reading;
         inputStates[i].lastChange = now;
+        anyChange = true;
         
         // Detectar mudança de HIGH para LOW (botão pressionado com pull-up)
         if (inputStates[i].previous == HIGH && inputStates[i].current == LOW) {
           switch(i) {
-            case 0: {
-              processEvent("ignicao_on"); 
-              ignicaoOffTimeoutActive = false;
-              failsafeTriggered = false;
-              pushLog("✓ Ignição ligada - fail-safe desativado");
-              
-              // Contador de ligadas para toggle WiFi
-              unsigned long now = millis();
-              if (now - lastIgnicaoToggle > IGNICAO_TOGGLE_WINDOW) {
-                ignicaoToggleCount = 0; // Reset se passou muito tempo
-              }
-              ignicaoToggleCount++;
-              lastIgnicaoToggle = now;
-              
-              if (ignicaoToggleCount >= 5) {
-                if (wifiEnabled) {
-                  disableWiFi();
-                } else {
-                  enableWiFi();
-                }
-                ignicaoToggleCount = 0;
-              } else {
-                pushLogf("🔑 Ignição ligada %d/5 (toggle WiFi)", ignicaoToggleCount);
-              }
-              break;
-            }
-            case 1: processEvent("porta_abriu"); break;
-            case 2: processEvent("destravou"); break;
-            case 3: processEvent("travou"); break;
+            case 0: evIgnicaoOn = true; break;
+            case 1: evPortaAbriu = true; break;
+            case 2: evDestravou = true; break;
+            case 3: evTravou = true; break;
           }
         }
         // Detectar mudança de LOW para HIGH (botão liberado)
         else if (inputStates[i].previous == LOW && inputStates[i].current == HIGH) {
           switch(i) {
-            case 0: 
-              processEvent("ignicao_off"); 
-              ignicaoOffTime = millis();
-              ignicaoOffTimeoutActive = true;
-              failsafeTriggered = false;
-              pushLogf("⏱️  Ignição desligada - fail-safe ativo em %d segundos", TIMEOUT_IGNICAO_OFF/1000);
-              break;
-            case 1: processEvent("porta_fechou"); break;
+            case 0: evIgnicaoOff = true; break;
+            case 1: evPortaFechou = true; break;
           }
         }
       }
     }
   }
+  
+  if (!anyChange) return;
+  
+  // Intertravamento: ignicao_on tem prioridade sobre ignicao_off no mesmo ciclo
+  if (evIgnicaoOn) evIgnicaoOff = false;
+  
+  // Intertravamento: travou tem prioridade sobre destravou no mesmo ciclo
+  if (evTravou) evDestravou = false;
+  
+  // Prioridade: ignicao_on > ignicao_off > travou > destravou > porta_abriu > porta_fechou
+  if (evIgnicaoOn) handleEvent("ignicao_on");
+  if (evIgnicaoOff) handleEvent("ignicao_off");
+  if (evTravou) handleEvent("travou");
+  if (evDestravou) handleEvent("destravou");
+  if (evPortaAbriu) handleEvent("porta_abriu");
+  if (evPortaFechou) handleEvent("porta_fechou");
 }
 
 // ============= SETUP =============
@@ -378,23 +409,6 @@ void setup() {
   }
   
   // ===== ROTAS DO SERVIDOR =====
-  
-  // Rotas de detecção de Captive Portal (compatíveis com iOS, Android, Windows)
-  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/html", "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
-  });
-  
-  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(204, "text/plain", "");
-  });
-  
-  server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(204, "text/plain", "");
-  });
-  
-  server.on("/check_network_status.txt", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(204, "text/plain", "");
-  });
   
   // Servir página HTML
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -602,78 +616,15 @@ void setup() {
     serializeJson(doc, payload);
     request->send(200, "application/json", payload);
   });
-
-  // Rota catchall para redirecionamento - Captive Portal
-  // Qualquer requisição HTTP é redirecionada para a página principal
-  server.onNotFound([](AsyncWebServerRequest *request){
-    String url = request->url();
-    
-    // Se não for autenticado e tentar acessar /api, pedir autenticação
-    if (url.startsWith("/api")) {
-      if (!checkAuth(request)) return;
-    }
-    
-    // Requisições de status de conectividade do sistema (iOS, Android, etc)
-    // Estas devem retornar sucesso para indicar que o portal está funcional
-    // Android
-    if (url == "/generate_204" || url == "/gen_204") {
-      request->send(204, "text/plain", "");
-      return;
-    }
-    
-    // Windows/MSFT
-    if (url.indexOf("ncsi.txt") != -1 || url.indexOf("msftncsi") != -1 || url.indexOf("wpad.dat") != -1) {
-      request->send(204, "text/plain", "");
-      return;
-    }
-    
-    // iOS/macOS - Apple captive portal detection
-    if (url == "/hotspot-detect.html" || url.indexOf("apple") != -1 || url.indexOf("icloud") != -1 ||
-        url.indexOf("captive.apple.com") != -1) {
-      request->send(200, "text/html", "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
-      return;
-    }
-    
-    // Google/Android alternative
-    if (url.indexOf("connectivitycheck") != -1 || url.indexOf("gstatic") != -1) {
-      request->send(204, "text/plain", "");
-      return;
-    }
-    
-    // Nokia/Other vendors
-    if (url.indexOf("success.txt") != -1 || url == "/check_network_status.txt") {
-      request->send(204, "text/plain", "");
-      return;
-    }
-    
-    // Log para debug
-    pushLogf("🔗 Portal: %s -> redirecionando para raiz", url.c_str());
-    
-    // Redirecionar tudo mais para a raiz (portal cativo)
-    request->redirect("/");
-  });
   
   server.begin();
   pushLog("Servidor HTTP iniciado");
   pushLog("Acesse: http://192.168.4.1");
-  
-  // Inicializar servidor DNS para Captive Portal
-  if (wifiEnabled) {
-    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-    // Redirecionar TODOS os domínios para 192.168.4.1
-    dnsServer.start(53, "*", WiFi.softAPIP());
-    pushLog("🌐 DNS Captive Portal ativado");
-  }
 }
 
 // ============= LOOP =============
 
 void loop() {
-  // Processar requisições DNS (Captive Portal)
-  if (wifiEnabled) {
-    dnsServer.processNextRequest();
-  }
-  
   checkInputs();
   updateOutputs();
   
