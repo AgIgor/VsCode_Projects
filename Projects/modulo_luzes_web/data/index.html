@@ -3,1282 +3,615 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle Luzes - Simulador</title>
+  <title>Car Lights - State-Based Automation</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      padding: 10px;
+      padding: 20px;
     }
-    
+
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
-    
-    .header {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 30px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
-    
-    .header h1 {
-      color: #2d3748;
-      font-size: 24px;
-      margin-bottom: 5px;
-    }
-    
-    .header p {
-      color: #718096;
-      font-size: 14px;
-    }
-    
-    .grid {
+
+    .main-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 15px;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
     }
-    
-    @media (min-width: 768px) {
-      .grid {
-        grid-template-columns: 1fr 1fr;
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
       }
     }
-    
-    .card {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 15px;
+
+    .panel {
+      background: white;
+      border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
-    
-    .card h2 {
-      color: #2d3748;
-      font-size: 18px;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .io-grid {
-      display: grid;
-      gap: 10px;
-    }
-    
-    .io-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 15px;
-      background: #f7fafc;
-      border-radius: 10px;
-      border: 2px solid #e2e8f0;
-      transition: all 0.2s;
-    }
-    
-    .io-item.active {
-      background: #e6fffa;
-      border-color: #38b2ac;
-    }
-    
-    .io-item .label {
-      font-weight: 600;
-      color: #2d3748;
-      font-size: 14px;
-    }
-    
-    .io-item .pin {
-      font-size: 11px;
-      color: #a0aec0;
-      margin-top: 2px;
-    }
-    
-    .btn-group {
-      display: flex;
-      gap: 8px;
-    }
-    
-    .btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    
-    .btn-pulse {
-      background: #fbbf24;
-      color: #78350f;
-    }
-    
-    .btn-pulse:hover {
-      background: #f59e0b;
-      transform: scale(0.98);
-    }
-    
-    .btn-pulse:active {
-      transform: scale(0.95);
-    }
-    
-    .btn-toggle {
-      background: #60a5fa;
-      color: white;
-    }
-    
-    .btn-toggle:hover {
-      background: #3b82f6;
-    }
-    
-    .btn-toggle.active {
-      background: #10b981;
-    }
-    
-    .status-indicator {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      border: 3px solid #e2e8f0;
-      background: #cbd5e0;
-      transition: all 0.3s;
-      position: relative;
-    }
-    
-    .status-indicator.active {
-      background: #48bb78;
-      border-color: #38a169;
-      box-shadow: 0 0 20px rgba(72, 187, 120, 0.6);
-    }
-    
-    .status-indicator::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.5);
-      transition: all 0.3s;
-    }
-    
-    .status-indicator.active::after {
-      width: 20px;
-      height: 20px;
-    }
-    
-    .rules-section {
-      grid-column: 1 / -1;
-    }
-    
-    .tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    
-    .tab {
-      padding: 10px 20px;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      color: #718096;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .tab.active {
+
+    .panel h2 {
       color: #667eea;
-      border-bottom-color: #667eea;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+      font-size: 16px;
     }
-    
-    .tab-content {
-      display: none;
-    }
-    
-    .tab-content.active {
-      display: block;
-    }
-    
-    .text-editor {
-      width: 100%;
-      min-height: 200px;
-      padding: 15px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      resize: vertical;
-      background: #1a202c;
-      color: #e2e8f0;
-    }
-    
-    .rule-visual {
-      background: #f7fafc;
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 10px;
-      border: 2px solid #e2e8f0;
-    }
-    
-    .rule-visual.error {
-      border-color: #fc8181;
-      background: #fff5f5;
-    }
-    
-    .rule-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    
-    .rule-title {
-      font-weight: 600;
-      color: #2d3748;
-    }
-    
-    .form-group {
-      margin-bottom: 12px;
-    }
-    
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      color: #718096;
-      margin-bottom: 5px;
-      font-weight: 600;
-    }
-    
-    .form-row {
+
+    .io-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+      margin-bottom: 15px;
     }
-    
-    @media (min-width: 768px) {
-      .form-row.cols-4 {
-        grid-template-columns: 2fr 1fr 1fr 2fr;
-      }
-      
-      .form-row.cols-3 {
-        grid-template-columns: 2fr 1fr 2fr;
-      }
-    }
-    
-    select, input[type="number"], input[type="text"] {
-      width: 100%;
-      padding: 8px 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
+
+    .io-item {
+      padding: 12px;
+      border-radius: 6px;
+      background: #f5f5f5;
+      text-align: center;
+      border: 2px solid #ddd;
+      transition: all 0.2s;
       font-size: 13px;
-      background: white;
-      color: #2d3748;
     }
-    
-    .btn-action {
+
+    .io-item.active {
+      background: #4caf50;
+      color: white;
+      border-color: #2e7d32;
+    }
+
+    .io-item.inactive {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 250px;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    }
+
+    .syntax-box {
+      background: #f9f9f9;
+      padding: 12px;
+      border-left: 4px solid #667eea;
+      margin-bottom: 15px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .syntax-box code {
+      background: #eee;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .btn-primary {
       background: #667eea;
       color: white;
-      width: 100%;
-      margin-top: 10px;
+      grid-column: 1 / -1;
     }
-    
-    .btn-action:hover {
-      background: #5a67d8;
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
-    
-    .btn-danger {
-      background: #f56565;
-      color: white;
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+      border: 2px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-small {
       padding: 6px 12px;
       font-size: 12px;
     }
-    
-    .btn-danger:hover {
-      background: #e53e3e;
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
     }
-    
-    .btn-success {
-      background: #48bb78;
-      color: white;
-      padding: 6px 12px;
-      font-size: 12px;
+
+    .status-indicator.on {
+      background: #4caf50;
     }
-    
-    .condition-group {
-      background: white;
-      border-radius: 8px;
-      padding: 12px;
+
+    .status-indicator.off {
+      background: #ccc;
+    }
+
+    .output-control {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      text-align: center;
+      background: #fafafa;
       margin-bottom: 10px;
     }
-    
-    .console {
-      background: #1a202c;
-      color: #e2e8f0;
-      padding: 15px;
-      border-radius: 10px;
-      font-family: 'Courier New', monospace;
+
+    .output-control p {
       font-size: 12px;
-      max-height: 200px;
-      overflow-y: auto;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .output-control button {
+      width: 100%;
+      padding: 6px;
+      margin: 2px 0;
+      font-size: 11px;
+    }
+
+    .simulator {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 6px;
       margin-top: 15px;
     }
-    
-    .console-line {
-      margin-bottom: 5px;
-      padding: 3px 0;
-      border-bottom: 1px solid #2d3748;
-    }
-    
-    .console-line.info { color: #63b3ed; }
-    .console-line.success { color: #68d391; }
-    .console-line.warning { color: #fbd38d; }
-    .console-line.error { color: #fc8181; }
-    
-    .help-text {
-      font-size: 11px;
-      color: #a0aec0;
-      margin-top: 5px;
-      line-height: 1.4;
-    }
-    
-    .syntax-help {
-      background: #edf2f7;
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 10px;
+
+    .simulator-title {
+      font-weight: bold;
       font-size: 12px;
-      color: #4a5568;
-    }
-    
-    .syntax-help code {
-      background: #2d3748;
-      color: #68d391;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-    }
-
-    .block-builder {
-      background: #f8fafc;
-      border: 2px dashed #cbd5f5;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .block-palette {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      color: #667eea;
       margin-bottom: 10px;
     }
 
-    .block-item {
-      padding: 6px 10px;
-      background: #edf2f7;
-      border: 1px solid #cbd5e0;
-      border-radius: 999px;
-      font-size: 12px;
-      cursor: grab;
-      user-select: none;
+    .sim-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
     }
 
-    .block-item:active {
-      cursor: grabbing;
-    }
-
-    .drop-zone {
-      min-height: 48px;
-      border: 2px dashed #94a3b8;
-      border-radius: 10px;
-      background: #ffffff;
+    .sim-btn {
       padding: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
+      font-size: 11px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
     }
 
-    .drop-zone.empty::before {
-      content: 'Arraste blocos para montar a regra';
-      color: #94a3b8;
-      font-size: 12px;
+    .sim-btn:active {
+      background: #667eea;
+      color: white;
     }
 
-    .drop-token {
-      padding: 4px 8px;
-      background: #e0f2fe;
-      border: 1px solid #7dd3fc;
+    .log-panel {
+      background: #1e1e1e;
+      color: #0ff;
+      padding: 15px;
       border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-entry {
+      margin: 2px 0;
+      font-size: 10px;
+    }
+
+    .log-time {
+      color: #666;
+      margin-right: 5px;
+    }
+
+    .status {
+      text-align: center;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      font-weight: bold;
       font-size: 12px;
     }
 
-    .drop-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
+    .status.connected {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+
+    .status.disconnected {
+      background: #ffcdd2;
+      color: #c62828;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>🚗 Controle Inteligente de Luzes</h1>
-      <p>Sistema de automação com regras programáveis e simulador em tempo real</p>
+    <h1>🚗 Car Lights Control - State-Based Automation</h1>
+
+    <div class="main-grid">
+      <!-- Left Panel: IO States & Control -->
+      <div>
+        <!-- Input States -->
+        <div class="panel">
+          <h2>📥 Input States</h2>
+          <div class="io-grid" id="inputStates">
+            <div class="io-item" data-input="trava">TRAVA<br>❌</div>
+            <div class="io-item" data-input="destrava">DESTRAVA<br>❌</div>
+            <div class="io-item" data-input="porta">PORTA<br>❌</div>
+            <div class="io-item" data-input="ignicao">IGNIÇÃO<br>❌</div>
+          </div>
+        </div>
+
+        <!-- Output States -->
+        <div class="panel">
+          <h2>📤 Output States</h2>
+          <div class="io-grid" id="outputStates">
+            <div class="io-item" data-output="luzInterna"><span class="status-indicator off"></span>LUZ INT</div>
+            <div class="io-item" data-output="luzAssoalho"><span class="status-indicator off"></span>ASSOALHO</div>
+            <div class="io-item" data-output="farol"><span class="status-indicator off"></span>FAROL</div>
+            <div class="io-item" data-output="drl"><span class="status-indicator off"></span>DRL</div>
+          </div>
+        </div>
+
+        <!-- Manual Control -->
+        <div class="panel">
+          <h2>🎮 Manual Control</h2>
+          <div class="output-control">
+            <p>Luz Interna</p>
+            <button class="btn-primary btn-small" onclick="sendCommand('luz-interna', true)">ON</button>
+            <button class="btn-secondary btn-small" onclick="sendCommand('luz-interna', false)">OFF</button>
+          </div>
+          <div class="output-control">
+            <p>Luz Assoalho</p>
+            <button class="btn-primary btn-small" onclick="sendCommand('luz-assoalho', true)">ON</button>
+            <button class="btn-secondary btn-small" onclick="sendCommand('luz-assoalho', false)">OFF</button>
+          </div>
+          <div class="output-control">
+            <p>Farol</p>
+            <button class="btn-primary btn-small" onclick="sendCommand('farol', true)">ON</button>
+            <button class="btn-secondary btn-small" onclick="sendCommand('farol', false)">OFF</button>
+          </div>
+          <div class="output-control">
+            <p>DRL</p>
+            <button class="btn-primary btn-small" onclick="sendCommand('drl', true)">ON</button>
+            <button class="btn-secondary btn-small" onclick="sendCommand('drl', false)">OFF</button>
+          </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div id="status" class="status disconnected">
+          🔴 Disconnected
+        </div>
+      </div>
+
+      <!-- Right Panel: Rules & Simulator -->
+      <div>
+        <div class="panel">
+          <h2>⚙️ Automation Rules</h2>
+          
+          <div class="syntax-box">
+            <strong>Format:</strong> <code>se [condition] entao [actions]</code><br><br>
+            <strong>Triggers:</strong> <code>ligou</code> (turned on) | <code>desligou</code> (turned off)<br>
+            <code>abriu</code> (opened) | <code>fechou</code> (closed)<br><br>
+            <strong>State Checks:</strong> <code>ligado</code> (is on) | <code>desligado</code> (is off)<br>
+            <code>aberto</code> (is open) | <code>fechado</code> (is closed)<br><br>
+            <strong>Actions:</strong> <code>liga</code> (turn on) | <code>desliga</code> (turn off)<br>
+            <strong>Timing:</strong> <code>em 1s</code> (delay) | <code>por 5s</code> (duration)<br>
+            <strong>Operators:</strong> <code>e</code> (AND) | <code>ou</code> (OR)
+          </div>
+
+          <textarea id="rulesText" placeholder="se trava ligou entao liga farol em 1s por 5s&#10;se ignicao desligou e porta fechada e drl desligado entao liga luz-interna&#10;se porta abriu ou fechou e ignicao desligada ou ignicao ligada entao liga luz-interna e liga luz-assoalho"></textarea>
+
+          <div class="button-group">
+            <button class="btn-primary" onclick="saveRules()">💾 Save Rules</button>
+            <button class="btn-secondary" onclick="clearRules()">🗑️ Clear</button>
+          </div>
+
+          <!-- Simulator -->
+          <div class="simulator">
+            <div class="simulator-title">🧪 Input Simulator</div>
+            <div class="sim-buttons">
+              <button class="sim-btn" onmousedown="simulateInput('trava', true)" onmouseup="simulateInput('trava', false)">TRAVA</button>
+              <button class="sim-btn" onmousedown="simulateInput('destrava', true)" onmouseup="simulateInput('destrava', false)">DESTRAVA</button>
+              <button class="sim-btn" onclick="toggleInput('porta')">PORTA</button>
+              <button class="sim-btn" onclick="toggleInput('ignicao')">IGNIÇÃO</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    
-    <div class="grid">
-      <!-- Entradas -->
-      <div class="card">
-        <h2>📥 Entradas (Pull-up)</h2>
-        <div class="io-grid">
-          <div class="io-item" id="input-trava">
-            <div>
-              <div class="label">Trava</div>
-              <div class="pin">GPIO 12</div>
-            </div>
-            <button class="btn btn-pulse" onclick="pulseInput('trava')">PULSO</button>
-          </div>
-          
-          <div class="io-item" id="input-destrava">
-            <div>
-              <div class="label">Destrava</div>
-              <div class="pin">GPIO 13</div>
-            </div>
-            <button class="btn btn-pulse" onclick="pulseInput('destrava')">PULSO</button>
-          </div>
-          
-          <div class="io-item" id="input-porta">
-            <div>
-              <div class="label">Porta</div>
-              <div class="pin">GPIO 14</div>
-            </div>
-            <button class="btn btn-toggle" id="btn-porta" onclick="toggleInput('porta')">ABRIR</button>
-          </div>
-          
-          <div class="io-item" id="input-ignicao">
-            <div>
-              <div class="label">Ignição</div>
-              <div class="pin">GPIO 27</div>
-            </div>
-            <button class="btn btn-toggle" id="btn-ignicao" onclick="toggleInput('ignicao')">LIGAR</button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Saídas -->
-      <div class="card">
-        <h2>📤 Saídas Digitais <span style="font-size: 12px; color: #718096;">(Controle Manual)</span></h2>
-        <div class="io-grid">
-          <div class="io-item" id="output-luz-interna">
-            <div>
-              <div class="label">Luz Interna</div>
-              <div class="pin">GPIO 25</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-luz-interna" onclick="toggleOutput('luz-interna')">ON</button>
-              <div class="status-indicator" id="status-luz-interna"></div>
-            </div>
-          </div>
-          
-          <div class="io-item" id="output-luz-assoalho">
-            <div>
-              <div class="label">Luz Assoalho</div>
-              <div class="pin">GPIO 26</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-luz-assoalho" onclick="toggleOutput('luz-assoalho')">ON</button>
-              <div class="status-indicator" id="status-luz-assoalho"></div>
-            </div>
-          </div>
-          
-          <div class="io-item" id="output-farol">
-            <div>
-              <div class="label">Farol</div>
-              <div class="pin">GPIO 32</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-farol" onclick="toggleOutput('farol')">ON</button>
-              <div class="status-indicator" id="status-farol"></div>
-            </div>
-          </div>
-          
-          <div class="io-item" id="output-drl">
-            <div>
-              <div class="label">DRL</div>
-              <div class="pin">GPIO 33</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <button class="btn btn-toggle" style="padding: 6px 12px; font-size: 11px;" id="btn-drl" onclick="toggleOutput('drl')">ON</button>
-              <div class="status-indicator" id="status-drl"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Regras -->
-      <div class="card rules-section">
-        <h2>⚙️ Programação de Regras</h2>
-        
-        <div class="tabs">
-          <button class="tab active" onclick="switchTab('text')">Modo Texto</button>
-          <button class="tab" onclick="switchTab('visual')">Modo Visual</button>
-        </div>
-        
-        <!-- Modo Texto -->
-        <div class="tab-content active" id="tab-text">
-          <div class="syntax-help">
-            <strong>Sintaxe:</strong><br>
-            <code>se|quando|enquanto</code> [condição] <code>entao</code> [ação] <code>e</code> [ação] <code>senao</code> [ação]<br>
-            <strong>Condições:</strong> <code>porta == aberta|fechada|on|off|liga|desliga</code> ou <code>trava|destrava|ignicao|luz-interna|luz-assoalho|farol|drl == on|off|liga|desliga</code><br>
-            <strong>Operadores:</strong> <code>and|or|e|ou</code><br>
-            <strong>Ações:</strong> <code>luz-interna|luz-assoalho|farol|drl = on|off|liga|desliga [em Xs] [por Ys]</code><br>
-            <strong>Exemplo:</strong> <code>se porta == aberta entao luz-interna = on senao luz-interna = off</code><br>
-            <strong>Exemplo 2:</strong> <code>quando destrava == off entao drl = off e farol = on</code>
-            <div class="help-text">Porta aberta = sinal LOW, porta fechada = sinal HIGH.</div>
-          </div>
-          
-          <div class="form-group">
-            <label>Regras (uma por linha)</label>
-            <textarea class="text-editor" id="rules-text" placeholder="se porta == aberta entao luz-interna = on senao luz-interna = off&#10;se ignicao == on entao farol = on senao farol = off&#10;quando destrava == off entao drl = off e farol = on"></textarea>
-          </div>
-          
-          <button class="btn btn-action" onclick="applyTextRules()">Aplicar Regras</button>
-          <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button class="btn btn-action" onclick="exportConfig()">Exportar Config</button>
-            <button class="btn btn-action" onclick="triggerImport()">Importar Config</button>
-            <input type="file" id="import-file" accept="application/json" style="display: none;" onchange="importConfig(event)">
-          </div>
-        </div>
-        
-        <!-- Modo Visual -->
-        <div class="tab-content" id="tab-visual">
-          <div class="block-builder">
-            <div class="help-text">Arraste blocos para montar uma linha de regra e adicionar ao editor.</div>
-            <div class="block-palette" id="block-palette">
-              <div class="block-item" draggable="true" data-token="se">se</div>
-              <div class="block-item" draggable="true" data-token="quando">quando</div>
-              <div class="block-item" draggable="true" data-token="enquanto">enquanto</div>
-              <div class="block-item" draggable="true" data-token="porta">porta</div>
-              <div class="block-item" draggable="true" data-token="trava">trava</div>
-              <div class="block-item" draggable="true" data-token="destrava">destrava</div>
-              <div class="block-item" draggable="true" data-token="ignicao">ignicao</div>
-              <div class="block-item" draggable="true" data-token="luz-interna">luz-interna</div>
-              <div class="block-item" draggable="true" data-token="luz-assoalho">luz-assoalho</div>
-              <div class="block-item" draggable="true" data-token="farol">farol</div>
-              <div class="block-item" draggable="true" data-token="drl">drl</div>
-              <div class="block-item" draggable="true" data-token="==">==</div>
-              <div class="block-item" draggable="true" data-token="=">=</div>
-              <div class="block-item" draggable="true" data-token="aberta">aberta</div>
-              <div class="block-item" draggable="true" data-token="fechada">fechada</div>
-              <div class="block-item" draggable="true" data-token="on">on</div>
-              <div class="block-item" draggable="true" data-token="off">off</div>
-              <div class="block-item" draggable="true" data-token="liga">liga</div>
-              <div class="block-item" draggable="true" data-token="desliga">desliga</div>
-              <div class="block-item" draggable="true" data-token="em">em</div>
-              <div class="block-item" draggable="true" data-token="por">por</div>
-              <div class="block-item" draggable="true" data-token="entao">entao</div>
-              <div class="block-item" draggable="true" data-token="senao">senao</div>
-              <div class="block-item" draggable="true" data-token="e">e</div>
-              <div class="block-item" draggable="true" data-token="ou">ou</div>
-            </div>
-            <div class="drop-zone empty" id="block-drop" ondragover="onBlockDragOver(event)" ondrop="onBlockDrop(event)"></div>
-            <div class="drop-actions">
-              <button class="btn btn-action" onclick="addBuilderToRules()">Adicionar ao Editor</button>
-              <button class="btn btn-danger" onclick="clearBuilder()">Limpar</button>
-            </div>
-          </div>
-          <div id="visual-rules"></div>
-          <button class="btn btn-action" onclick="addVisualRule()">+ Adicionar Regra</button>
-        </div>
-        
-        <!-- Console -->
-        <div class="console" id="console">
-          <div class="console-line info">Sistema inicializado. Aguardando regras...</div>
-        </div>
-      </div>
+
+    <!-- Log Panel -->
+    <div class="panel">
+      <h2>📋 Log</h2>
+      <div class="log-panel" id="logPanel"></div>
     </div>
   </div>
 
   <script>
     let ws = null;
-    let wsConnected = false;
+    let reconnectTimer = null;
+    let currentIO = {};
+    let prevIO = {};
+    let parsedRules = [];
 
     function connectWebSocket() {
-      const wsUrl = `ws://${location.host}/ws`;
-      ws = new WebSocket(wsUrl);
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      ws = new WebSocket('ws://' + location.host + '/ws');
 
       ws.onopen = () => {
-        wsConnected = true;
-        logConsole('WebSocket conectado ao ESP32', 'success');
+        updateStatus(true);
+        log('✔️ Connected to ESP32', 'success');
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
       };
 
       ws.onclose = () => {
-        wsConnected = false;
-        logConsole('WebSocket desconectado. Modo simulador ativo.', 'warning');
-        setTimeout(connectWebSocket, 2000);
-      };
-
-      ws.onerror = () => {
-        wsConnected = false;
+        updateStatus(false);
+        log('❌ Disconnected from ESP32', 'error');
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(connectWebSocket, 2000);
+        }
       };
 
       ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          syncFromDevice(data);
-        } catch (e) {
-          logConsole('Erro ao processar dados do ESP32', 'error');
-        }
+        const data = JSON.parse(event.data);
+        prevIO = { ...currentIO };
+        currentIO = data;
+        updateUI();
+        evaluateSimulator();
+      };
+
+      ws.onerror = () => {
+        log('⚠️  WebSocket error', 'error');
       };
     }
 
-    // Estado do sistema
-    let inputs = {
-      trava: false,
-      destrava: false,
-      porta: false,
-      ignicao: false
-    };
-    
-    let outputs = {
-      'luz-interna': false,
-      'luz-assoalho': false,
-      'farol': false,
-      'drl': false
-    };
-    
-    let rules = [];
-    let timers = {};
-    let visualRuleCount = 0;
-    let builderTokens = [];
+    function updateStatus(connected) {
+      const elem = document.getElementById('status');
+      if (connected) {
+        elem.textContent = '🟢 Connected';
+        elem.className = 'status connected';
+      } else {
+        elem.textContent = '🔴 Disconnected';
+        elem.className = 'status disconnected';
+      }
+    }
 
-    function initBlockBuilder() {
-      document.querySelectorAll('.block-item').forEach(item => {
-        item.addEventListener('dragstart', onBlockDragStart);
+    function updateUI() {
+      // Update inputs
+      ['trava', 'destrava', 'porta', 'ignicao'].forEach(key => {
+        const elem = document.querySelector(`[data-input="${key}"]`);
+        if (elem) {
+          elem.className = `io-item ${currentIO[key] ? 'active' : 'inactive'}`;
+          elem.innerHTML = `${key.toUpperCase()}<br>${currentIO[key] ? '✅' : '❌'}`;
+        }
       });
-      renderBuilder();
-    }
 
-    function onBlockDragStart(event) {
-      event.dataTransfer.setData('text/plain', event.target.dataset.token);
-    }
+      // Update outputs
+      const outputMap = {
+        luzInterna: 'luz-interna',
+        luzAssoalho: 'luz-assoalho',
+        farol: 'farol',
+        drl: 'drl'
+      };
 
-    function onBlockDragOver(event) {
-      event.preventDefault();
-    }
-
-    function onBlockDrop(event) {
-      event.preventDefault();
-      const token = event.dataTransfer.getData('text/plain');
-      if (token) {
-        builderTokens.push(token);
-        renderBuilder();
-      }
-    }
-
-    function renderBuilder() {
-      const zone = document.getElementById('block-drop');
-      if (!zone) return;
-      zone.innerHTML = '';
-      if (builderTokens.length === 0) {
-        zone.classList.add('empty');
-        return;
-      }
-      zone.classList.remove('empty');
-      builderTokens.forEach(token => {
-        const span = document.createElement('span');
-        span.className = 'drop-token';
-        span.textContent = token;
-        zone.appendChild(span);
+      Object.entries(outputMap).forEach(([key, label]) => {
+        const elem = document.querySelector(`[data-output="${key}"]`);
+        if (elem) {
+          elem.className = `io-item ${currentIO[key] ? 'active' : 'inactive'}`;
+          const indicator = elem.querySelector('.status-indicator');
+          if (indicator) {
+            indicator.className = `status-indicator ${currentIO[key] ? 'on' : 'off'}`;
+          }
+        }
       });
     }
 
-    function clearBuilder() {
-      builderTokens = [];
-      renderBuilder();
-    }
-
-    function addBuilderToRules() {
-      const line = builderTokens.join(' ').trim();
-      if (!line) return;
-      const editor = document.getElementById('rules-text');
-      editor.value = editor.value.trim()
-        ? `${editor.value.trim()}\n${line}`
-        : line;
-      clearBuilder();
-      applyTextRules();
-    }
-    
-    // Funções de simulação de entradas
-    function pulseInput(name) {
-      if (wsConnected) {
-        logConsole('Entradas sao somente leitura no modo dispositivo', 'warning');
-        return;
-      }
-      const item = document.getElementById(`input-${name}`);
-      item.classList.add('active');
-      inputs[name] = true;
-      
-      logConsole(`Pulso detectado: ${name}`, 'warning');
-      evaluateRules();
-      
-      setTimeout(() => {
-        inputs[name] = false;
-        item.classList.remove('active');
-      }, 300);
-    }
-    
-    function toggleInput(name) {
-      if (wsConnected) {
-        logConsole('Entradas sao somente leitura no modo dispositivo', 'warning');
-        return;
-      }
-      inputs[name] = !inputs[name];
-      const item = document.getElementById(`input-${name}`);
-      const btn = document.getElementById(`btn-${name}`);
-      
-      if (inputs[name]) {
-        item.classList.add('active');
-        btn.classList.add('active');
-        btn.textContent = name === 'porta' ? 'FECHAR' : 'DESLIGAR';
-      } else {
-        item.classList.remove('active');
-        btn.classList.remove('active');
-        btn.textContent = name === 'porta' ? 'ABRIR' : 'LIGAR';
-      }
-      
-      logConsole(`${name}: ${inputs[name] ? 'ON' : 'OFF'}`, 'info');
-      evaluateRules();
-    }
-    
-    // Funções de saída
-    function setOutput(name, state, delay = 0, duration = 0) {
-      // Cancela timer anterior se existir
-      if (timers[name]) {
-        clearTimeout(timers[name].timeout);
-        if (timers[name].durationTimeout) {
-          clearTimeout(timers[name].durationTimeout);
-        }
-      }
-      
-      if (delay > 0) {
-        logConsole(`Agendado: ${name} = ${state ? 'ON' : 'OFF'} em ${delay}s` + 
-                   (duration > 0 ? ` por ${duration}s` : ''), 'warning');
-        
-        timers[name] = {
-          timeout: setTimeout(() => {
-            applyOutput(name, state);
-            
-            if (duration > 0) {
-              timers[name].durationTimeout = setTimeout(() => {
-                applyOutput(name, !state);
-                logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'ON' : 'OFF'}`, 'info');
-              }, duration * 1000);
-            }
-          }, delay * 1000)
-        };
-      } else {
-        applyOutput(name, state);
-        
-        if (duration > 0) {
-          timers[name] = {
-            durationTimeout: setTimeout(() => {
-              applyOutput(name, !state);
-              logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'ON' : 'OFF'}`, 'info');
-            }, duration * 1000)
-          };
-        }
-      }
-    }
-    
-    function applyOutput(name, state, log = true) {
-      outputs[name] = state;
-      const indicator = document.getElementById(`status-${name}`);
-      const item = document.getElementById(`output-${name}`);
-      const btn = document.getElementById(`btn-${name}`);
-      
-      if (state) {
-        indicator.classList.add('active');
-        item.classList.add('active');
-        if (btn) {
-          btn.classList.add('active');
-          btn.textContent = 'OFF';
-        }
-      } else {
-        indicator.classList.remove('active');
-        item.classList.remove('active');
-        if (btn) {
-          btn.classList.remove('active');
-          btn.textContent = 'ON';
-        }
-      }
-      
-      if (log) {
-        logConsole(`Saída alterada: ${name} = ${state ? 'ON' : 'OFF'}`, 'success');
-      }
-    }
-    
-    // Função de controle manual de saídas
-    function toggleOutput(name) {
-      outputs[name] = !outputs[name];
-      applyOutput(name, outputs[name]);
-      logConsole(`Controle manual: ${name} = ${outputs[name] ? 'ON' : 'OFF'}`, 'info');
-      sendOutputCommand(name, outputs[name]);
-    }
-
-    function sendOutputCommand(name, state) {
-      if (!wsConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ output: name, state }));
-    }
-    
-    // Parser de regras em texto
-    function parseTextRules(text) {
-      const lines = text.split('\n').filter(l => l.trim() && !l.trim().startsWith('//'));
-      const parsed = [];
-      
-      for (let line of lines) {
-        try {
-          const rule = parseRule(line);
-          if (rule) parsed.push(rule);
-        } catch (e) {
-          logConsole(`Erro ao parsear: ${line} - ${e.message}`, 'error');
-        }
-      }
-      
-      return parsed;
-    }
-    
-    function parseRule(line) {
-      line = line.toLowerCase().trim();
-      
-      // Extrai tipo de regra (se, quando, enquanto)
-      let type = 'se';
-      if (line.startsWith('quando')) type = 'quando';
-      else if (line.startsWith('enquanto')) type = 'enquanto';
-      
-      // Divide em condições e ações
-      const parts = line.split(/\s+(?:entao|então)\s+/);
-      if (parts.length !== 2) {
-        throw new Error('Formato inválido. Use: [tipo] [condições] entao [ação]');
-      }
-      
-      // Remove o tipo da condição
-      const conditionText = parts[0].replace(/^(se|quando|enquanto)\s+/, '');
-      let actionText = parts[1];
-      
-      // Verifica se tem senao
-      const senaoMatch = actionText.match(/^(.+?)\s+(?:senao|senão)\s+(.+)$/);
-      let elseActions = null;
-      
-      if (senaoMatch) {
-        actionText = senaoMatch[1];
-        elseActions = parseActions(senaoMatch[2]);
-      }
-      
-      // Parse condições
-      const conditions = parseConditions(conditionText);
-      
-      // Parse ação
-      const actions = parseActions(actionText);
-      
-      return {
-        type,
-        conditions,
-        actions,
-        elseActions,
-        original: line
-      };
-    }
-    
-    function parseConditions(text) {
-      // Separa por operadores lógicos mantendo-os
-      const tokens = text.split(/\s+(and|or|e|ou)\s+/);
-      const conditions = [];
-      
-      for (let i = 0; i < tokens.length; i += 2) {
-        const condition = parseCondition(tokens[i].trim());
-        if (condition) {
-          conditions.push(condition);
-          
-          // Adiciona operador se não for a última condição
-          if (i + 1 < tokens.length) {
-            const op = tokens[i + 1].toLowerCase();
-            condition.operator = (op === 'and' || op === 'e') ? 'AND' : 'OR';
-          }
-        }
-      }
-      
-      return conditions;
-    }
-    
-    function parseCondition(text) {
-      const match = text.match(/^(trava|destrava|porta|ignicao|ignição|luz-interna|luz-assoalho|farol|drl)\s*==\s*(off|on|liga|desliga|aberta|fechada)$/);
-      if (!match) return null;
-      
-      const input = match[1] === 'ignição' ? 'ignicao' : match[1];
-      const token = match[2];
-      let state = null;
-      if (token === 'on' || token === 'liga') state = true;
-      if (token === 'off' || token === 'desliga') state = false;
-      if (input === 'porta') {
-        if (token === 'aberta') state = true;
-        if (token === 'fechada') state = false;
-      }
-      if (state === null) return null;
-
-      return { input, state };
-    }
-    
-    function parseAction(text) {
-      const match = text.match(/^(luz-interna|luz-assoalho|farol|drl)\s*(?:==|=)\s*(off|on|liga|desliga)(?:\s+em\s+(\d+)s)?(?:\s+por\s+(\d+)s)?$/);
-      if (!match) {
-        throw new Error('Formato de ação inválido');
-      }
-      
-      return {
-        output: match[1],
-        state: match[2] === 'on' || match[2] === 'liga',
-        delay: match[3] ? parseInt(match[3]) : 0,
-        duration: match[4] ? parseInt(match[4]) : 0
-      };
-    }
-    
-    function parseActions(text) {
-      const parts = text.split(/\s+(?:e|and)\s+/);
-      return parts.map(part => parseAction(part.trim()));
-    }
-    
-    // Avaliação de regras
-    function evaluateRules() {
-      if (wsConnected) return;
-      for (let rule of rules) {
-        const condResult = evaluateConditions(rule.conditions);
-        
-        if (condResult) {
-          executeActions(rule.actions);
-          
-          if (rule.type === 'se' || rule.type === 'quando') {
-            // Regras "se" e "quando" são executadas uma vez
-            logConsole(`Regra ativada: ${rule.original}`, 'success');
-          }
-        } else if (rule.elseActions) {
-          // Executa ação do "senao"
-          executeActions(rule.elseActions);
-          logConsole(`Regra (senao) ativada: ${rule.original}`, 'success');
-        }
-      }
-    }
-    
-    function evaluateConditions(conditions) {
-      if (conditions.length === 0) return false;
-      
-      let result = evaluateCondition(conditions[0]);
-      
-      for (let i = 1; i < conditions.length; i++) {
-        const condition = conditions[i];
-        const condResult = evaluateCondition(condition);
-        const prevOp = conditions[i - 1].operator || 'AND';
-        
-        if (prevOp === 'AND') {
-          result = result && condResult;
-        } else {
-          result = result || condResult;
-        }
-      }
-      
-      return result;
-    }
-    
-    function evaluateCondition(condition) {
-      const inputValue = inputs[condition.input] !== undefined ? inputs[condition.input] : outputs[condition.input];
-      return inputValue === condition.state;
-    }
-    
-    function executeAction(action) {
-      setOutput(action.output, action.state, action.delay, action.duration);
-    }
-    
-    function executeActions(actions) {
-      if (!actions || actions.length === 0) return;
-      actions.forEach(action => executeAction(action));
-    }
-    
-    // Aplicar regras do modo texto
-    function applyTextRules() {
-      const text = document.getElementById('rules-text').value;
-      rules = parseTextRules(text);
-      
-      if (rules.length > 0) {
-        logConsole(`${rules.length} regra(s) carregada(s) com sucesso!`, 'success');
-        evaluateRules();
-        sendRulesToDevice();
-      } else {
-        logConsole('Nenhuma regra válida encontrada', 'warning');
-      }
-    }
-    
-    // Modo visual
-    function addVisualRule() {
-      visualRuleCount++;
-      const container = document.getElementById('visual-rules');
-      
-      const ruleHtml = `
-        <div class="rule-visual" id="vrule-${visualRuleCount}">
-          <div class="rule-header">
-            <span class="rule-title">Regra #${visualRuleCount}</span>
-            <button class="btn btn-danger" onclick="removeVisualRule(${visualRuleCount})">Remover</button>
-          </div>
-          
-          <div class="form-group">
-            <label>Tipo</label>
-            <select id="vtype-${visualRuleCount}">
-              <option value="se">Se (executa uma vez)</option>
-              <option value="quando">Quando (executa ao mudar)</option>
-              <option value="enquanto">Enquanto (mantém estado)</option>
-            </select>
-          </div>
-          
-          <div class="condition-group">
-            <div class="form-row cols-3">
-              <div class="form-group">
-                <label>Entrada/Saída</label>
-                <select id="vinput-${visualRuleCount}">
-                  <optgroup label="Entradas">
-                    <option value="trava">Trava</option>
-                    <option value="destrava">Destrava</option>
-                    <option value="porta">Porta</option>
-                    <option value="ignicao">Ignição</option>
-                  </optgroup>
-                  <optgroup label="Saídas (ler estado)">
-                    <option value="luz-interna">Luz Interna</option>
-                    <option value="luz-assoalho">Luz Assoalho</option>
-                    <option value="farol">Farol</option>
-                    <option value="drl">DRL</option>
-                  </optgroup>
-                </select>
-              </div>
-              
-              <div class="form-group">
-                <label>Estado</label>
-                <select id="vstate-${visualRuleCount}">
-                  <option value="aberta">ABERTA</option>
-                  <option value="fechada">FECHADA</option>
-                  <option value="off">OFF</option>
-                  <option value="on">ON</option>
-                </select>
-              </div>
-              
-              <div class="form-group">
-                <label>Operador</label>
-                <select id="vop-${visualRuleCount}">
-                  <option value="none">Nenhum</option>
-                  <option value="AND">AND</option>
-                  <option value="OR">OR</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          <div class="form-row cols-4">
-            <div class="form-group">
-              <label>Saída</label>
-              <select id="voutput-${visualRuleCount}">
-                <option value="luz-interna">Luz Interna</option>
-                <option value="luz-assoalho">Luz Assoalho</option>
-                <option value="farol">Farol</option>
-                <option value="drl">DRL</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Ação</label>
-              <select id="vaction-${visualRuleCount}">
-                <option value="on">ON</option>
-                <option value="off">OFF</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label>Delay (s)</label>
-              <input type="number" id="vdelay-${visualRuleCount}" value="0" min="0">
-            </div>
-            
-            <div class="form-group">
-              <label>Duração (s)</label>
-              <input type="number" id="vduration-${visualRuleCount}" value="0" min="0">
-            </div>
-          </div>
-          
-          <button class="btn btn-success" onclick="applyVisualRule(${visualRuleCount})">Aplicar Esta Regra</button>
-        </div>
-      `;
-      
-      container.insertAdjacentHTML('beforeend', ruleHtml);
-    }
-    
-    function removeVisualRule(id) {
-      const rule = document.getElementById(`vrule-${id}`);
-      if (rule) rule.remove();
-    }
-    
-    function applyVisualRule(id) {
-      const type = document.getElementById(`vtype-${id}`).value;
-      const input = document.getElementById(`vinput-${id}`).value;
-      const state = document.getElementById(`vstate-${id}`).value;
-      const output = document.getElementById(`voutput-${id}`).value;
-      const action = document.getElementById(`vaction-${id}`).value;
-      const delay = parseInt(document.getElementById(`vdelay-${id}`).value) || 0;
-      const duration = parseInt(document.getElementById(`vduration-${id}`).value) || 0;
-
-      if (input !== 'porta' && (state === 'aberta' || state === 'fechada')) {
-        logConsole('Estado aberta/fechada so pode ser usado com porta', 'error');
-        return;
-      }
-
-      const line = `${type} ${input} == ${state} entao ${output} = ${action}` +
-                   (delay > 0 ? ` em ${delay}s` : '') +
-                   (duration > 0 ? ` por ${duration}s` : '');
-
-      const editor = document.getElementById('rules-text');
-      editor.value = editor.value.trim()
-        ? `${editor.value.trim()}\n${line}`
-        : line;
-
-      logConsole(`Regra visual #${id} adicionada ao editor!`, 'success');
-      applyTextRules();
-    }
-
-    function sendRulesToDevice() {
-      if (!wsConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
-      const rulesText = getRulesText();
-      ws.send(JSON.stringify({ rules: rulesText }));
-    }
-
-    function getRulesText() {
-      const text = document.getElementById('rules-text').value.trim();
-      if (text) return text;
-      return rules.map(rule => rule.original).join('\n');
-    }
-    
-    // Funções auxiliares
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      event.target.classList.add('active');
-      document.getElementById(`tab-${tab}`).classList.add('active');
-    }
-    
-    function logConsole(message, type = 'info') {
-      const console = document.getElementById('console');
+    function log(message, type = 'info') {
+      const logPanel = document.getElementById('logPanel');
       const time = new Date().toLocaleTimeString('pt-BR');
-      const line = document.createElement('div');
-      line.className = `console-line ${type}`;
-      line.textContent = `[${time}] ${message}`;
-      console.appendChild(line);
-      console.scrollTop = console.scrollHeight;
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+      logPanel.appendChild(entry);
+      logPanel.scrollTop = logPanel.scrollHeight;
       
-      // Limita a 50 linhas
-      while (console.children.length > 50) {
-        console.removeChild(console.firstChild);
+      while (logPanel.children.length > 50) {
+        logPanel.removeChild(logPanel.firstChild);
       }
     }
 
-    function syncFromDevice(state) {
-      if (state.trava !== undefined) updateInputUI('trava', state.trava);
-      if (state.destrava !== undefined) updateInputUI('destrava', state.destrava);
-      if (state.porta !== undefined) updateInputUI('porta', state.porta);
-      if (state.ignicao !== undefined) updateInputUI('ignicao', state.ignicao);
-      if (state.luzInterna !== undefined) applyOutput('luz-interna', state.luzInterna, false);
-      if (state.luzAssoalho !== undefined) applyOutput('luz-assoalho', state.luzAssoalho, false);
-      if (state.farol !== undefined) applyOutput('farol', state.farol, false);
-      if (state.drl !== undefined) applyOutput('drl', state.drl, false);
+    function saveRules() {
+      const text = document.getElementById('rulesText').value;
+      
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('⚠️  Not connected to device', 'error');
+        return;
+      }
+
+      ws.send(JSON.stringify({ rules: text }));
+      log('✔️ Rules sent to device', 'success');
+      parseRules(text);
     }
 
-    function updateInputUI(name, state) {
-      inputs[name] = state;
-      const item = document.getElementById(`input-${name}`);
-      const btn = document.getElementById(`btn-${name}`);
-      if (state) {
-        item.classList.add('active');
-        if (btn) {
-          btn.classList.add('active');
-          btn.textContent = name === 'porta' ? 'FECHAR' : 'DESLIGAR';
-        }
-      } else {
-        item.classList.remove('active');
-        if (btn) {
-          btn.classList.remove('active');
-          btn.textContent = name === 'porta' ? 'ABRIR' : 'LIGAR';
-        }
+    function clearRules() {
+      if (confirm('Clear all rules?')) {
+        document.getElementById('rulesText').value = '';
+        saveRules();
       }
     }
 
-    function exportConfig() {
-      const config = {
-        version: 1,
-        rulesText: document.getElementById('rules-text').value
+    function sendCommand(output, state) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log('⚠️  Not connected to device', 'error');
+        return;
+      }
+      ws.send(JSON.stringify({ output, state }));
+      log(`Manual: ${output} = ${state ? 'ON' : 'OFF'}`, 'info');
+    }
+
+    function simulateInput(input, value) {
+      const obj = { ...currentIO, [input]: value };
+      prevIO = { ...currentIO };
+      currentIO = obj;
+      updateUI();
+      evaluateSimulator();
+    }
+
+    function toggleInput(input) {
+      prevIO = { ...currentIO };
+      currentIO[input] = !currentIO[input];
+      updateUI();
+      evaluateSimulator();
+    }
+
+    function parseRules(text) {
+      parsedRules = [];
+      const lines = text.split('\n');
+      
+      lines.forEach(line => {
+        line = line.trim().toLowerCase();
+        if (!line || line.startsWith('//')) return;
+        
+        const entaoIdx = line.indexOf('entao');
+        if (entaoIdx < 0) return;
+        
+        const condPart = line.substring(0, entaoIdx).replace('se ', '');
+        const actionPart = line.substring(entaoIdx + 5);
+        
+        parsedRules.push({ condPart, actionPart });
+      });
+    }
+
+    function getIOValue(input) {
+      const shortMaps = {
+        'luz-interna': 'luzInterna',
+        'luz-assoalho': 'luzAssoalho',
+        'farol': 'farol',
+        'drl': 'drl'
       };
-      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'config-luzes.json';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const key = shortMaps[input] || input;
+      return currentIO[key];
     }
 
-    function triggerImport() {
-      document.getElementById('import-file').click();
+    function getPrevIOValue(input) {
+      const shortMaps = {
+        'luz-interna': 'luzInterna',
+        'luz-assoalho': 'luzAssoalho',
+        'farol': 'farol',
+        'drl': 'drl'
+      };
+      const key = shortMaps[input] || input;
+      return prevIO[key];
     }
 
-    function importConfig(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target.result);
-          if (typeof data.rulesText !== 'string') {
-            throw new Error('Arquivo invalido');
+    function checkStateType(input, stateType) {
+      const current = getIOValue(input);
+      const prev = getPrevIOValue(input);
+
+      if (stateType === 'ligou') return !prev && current;
+      if (stateType === 'desligou') return prev && !current;
+      if (stateType === 'abriu') return !prev && current;
+      if (stateType === 'fechou') return prev && !current;
+      if (stateType === 'ligado') return current === true;
+      if (stateType === 'desligado') return current === false;
+      if (stateType === 'aberto') return current === true;
+      if (stateType === 'fechado') return current === false;
+      
+      return false;
+    }
+
+    function evaluateSimulator() {
+      parsedRules.forEach(rule => {
+        const condParts = rule.condPart.split(' ou ');
+        let orResult = false;
+
+        condParts.forEach(orGroup => {
+          const andParts = orGroup.split(' e ');
+          let andResult = true;
+
+          andParts.forEach(cond => {
+            cond = cond.trim();
+            const parts = cond.split(' ');
+            if (parts.length >= 2) {
+              const input = parts[0];
+              const stateType = parts[1];
+              if (!checkStateType(input, stateType)) {
+                andResult = false;
+              }
+            }
+          });
+
+          if (andResult) {
+            orResult = true;
           }
-          document.getElementById('rules-text').value = data.rulesText;
-          applyTextRules();
-          logConsole('Configuracao importada com sucesso', 'success');
-        } catch (err) {
-          logConsole('Falha ao importar configuracao', 'error');
+        });
+
+        if (orResult) {
+          log(`✔️ Rule matched: ${rule.condPart.substring(0, 50)}...`, 'success');
         }
-      };
-      reader.readAsText(file);
-      event.target.value = '';
+      });
     }
-    
-    // Inicialização
-    logConsole('Sistema pronto! Digite suas regras ou use o modo visual.', 'success');
-    
-    // Exemplo de regras pré-carregadas
-    const exampleRules = `// Exemplos com "senao" e multi-acoes
-  se porta == aberta entao luz-interna = on senao luz-interna = off
-  se ignicao == on entao farol = on em 2s senao farol = off
-  quando destrava == off entao drl = off e farol = on`;
-    
-    document.getElementById('rules-text').value = exampleRules;
-    initBlockBuilder();
+
+    updateStatus(false);
     connectWebSocket();
   </script>
 </body>

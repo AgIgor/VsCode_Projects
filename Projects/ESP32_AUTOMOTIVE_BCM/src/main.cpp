@@ -28,17 +28,13 @@
 #define TIMEOUT_IGNICAO_OFF 600000  // 600 segundos (10 minutos) em ms
 
 // ============= ESTRUTURAS =============
-struct OutputState {
-  bool active = false;
-  unsigned long ligarTime = 0;
-  unsigned long desligarTime = 0;
-};
-
-struct InputState {
-  bool current = HIGH;
-  bool previous = HIGH;
+struct EntityState {
+  bool current = false;
+  bool previous = false;
   unsigned long lastChange = 0;
   const uint32_t debounce = 50;
+  unsigned long ligarTime = 0;
+  unsigned long desligarTime = 0;
 };
 
 // ============= VARIÁVEIS GLOBAIS =============
@@ -49,15 +45,16 @@ JsonDocument configDoc;
 String wifiSSID = DEFAULT_SSID;
 String bcmName = DEFAULT_BCM_NAME;
 
-OutputState outputStates[4]; // farol, drl, interna, pes
-InputState inputStates[4];   // ignicao, porta, trava, destrava
+// Estados de todas as entidades (4 inputs + 4 outputs)
+EntityState entityStates[8]; 
 
-const char* outputNames[] = {"farol", "drl", "interna", "pes"};
+// Mapeamento de entidades
+const char* entityNames[] = {"ignicao", "porta", "trava", "destrava", "farol", "drl", "luz-interna", "luz-assoalho"};
+const uint8_t inputPins[] = {PIN_IGNICAO, PIN_PORTA, PIN_TRAVA, PIN_DESTRAVA};
 const uint8_t outputPins[] = {PIN_FAROL, PIN_DRL, PIN_INTERNA, PIN_PES};
-const uint8_t inputPins[] = {PIN_IGNICAO, PIN_PORTA, PIN_DESTRAVA, PIN_TRAVA};
 
 // Fail-safe: controle de timeout
-unsigned long ignicaoOffTime = 0;  // Momento em que ignição foi desligada
+unsigned long ignicaoOffTime = 0;
 bool ignicaoOffTimeoutActive = false;
 bool failsafeTriggered = false;
 
@@ -117,12 +114,12 @@ void shutdownAllOutputs() {
   pushLog("⚠️  FAIL-SAFE ATIVADO: Desligando todas as saídas!");
   for (int i = 0; i < 4; i++) {
     digitalWrite(outputPins[i], LOW);
-    outputStates[i].active = false;
-    outputStates[i].ligarTime = 0;
-    outputStates[i].desligarTime = 0;
-    pushLogf("  ✗ %s desligado", outputNames[i]);
+    entityStates[i + 4].current = false;
+    entityStates[i + 4].ligarTime = 0;
+    entityStates[i + 4].desligarTime = 0;
+    pushLogf("  ✗ %s desligado", entityNames[i + 4]);
   }
-  disableWiFi(); // Desligar WiFi também
+  disableWiFi();
   failsafeTriggered = true;
 }
 
@@ -149,7 +146,7 @@ void loadConfig() {
     return;
   }
 
-  // Carregar WiFi SSID e BCM Name das configurações
+  // Carregar WiFi SSID e BCM Name
   if (configDoc["wifiSSID"].is<const char*>()) {
     wifiSSID = configDoc["wifiSSID"].as<const char*>();
   } else {
@@ -164,8 +161,7 @@ void loadConfig() {
 
   String pretty;
   serializeJsonPretty(configDoc, pretty);
-  pushLog("Configuração carregada:");
-  pushLog(pretty);
+  pushLog("Configuração carregada OK");
 }
 
 void saveConfig(const String& jsonData) {
@@ -180,191 +176,252 @@ void saveConfig(const String& jsonData) {
   pushLog("Configuração salva com sucesso");
 }
 
-bool checkCondition(JsonObject conditions) {
-  // Verifica condição de porta
-  const char* portaCond = conditions["porta"] | "any";
-  if (strcmp(portaCond, "any") != 0) {
-    bool portaOpen = digitalRead(PIN_PORTA) == LOW; // LOW = porta aberta (pull-up)
-    if (strcmp(portaCond, "open") == 0 && !portaOpen) return false;
-    if (strcmp(portaCond, "closed") == 0 && portaOpen) return false;
+// Encontrar índice da entidade pelo nome
+int getEntityIndex(const char* name) {
+  for (int i = 0; i < 8; i++) {
+    if (strcmp(entityNames[i], name) == 0) return i;
   }
-  
-  // Verifica condição de ignição
-  const char* ignicaoCond = conditions["ignicao"] | "any";
-  if (strcmp(ignicaoCond, "any") != 0) {
-    bool ignicaoOn = digitalRead(PIN_IGNICAO) == LOW; // LOW = ignição ligada (pull-up)
-    if (strcmp(ignicaoCond, "on") == 0 && !ignicaoOn) return false;
-    if (strcmp(ignicaoCond, "off") == 0 && ignicaoOn) return false;
-  }
-  
-  return true;
+  return -1;
 }
 
-void processEvent(const char* eventName) {
-  pushLog(String("Evento detectado: ") + eventName);
+// Verificar se condição é atendida
+bool checkStateCondition(const char* entityName, const char* stateName) {
+  int idx = getEntityIndex(entityName);
+  if (idx == -1) return true; // Entidade não encontrada, ignora
   
-  if (!configDoc.containsKey("logicas")) return;
+  // Mapeamento de estados
+  bool expectedState = false;
+  if (strcmp(stateName, "ligado") == 0 || strcmp(stateName, "aberto") == 0) {
+    expectedState = true;
+  } else if (strcmp(stateName, "desligado") == 0 || strcmp(stateName, "fechado") == 0) {
+    expectedState = false;
+  }
+  
+  return entityStates[idx].current == expectedState;
+}
+
+// Processar regras quando uma entidade muda de estado
+void processStateChange(int entityIndex, const char* eventType) {
+  const char* entityName = entityNames[entityIndex];
+  pushLogf("⚡ Mudança: %s %s", entityName, eventType);
+  
+  if (!configDoc["logicas"].is<JsonArray>()) return;
   
   JsonArray logicas = configDoc["logicas"].as<JsonArray>();
   
   for (JsonObject logica : logicas) {
-    const char* evento = logica["evento"];
-    if (strcmp(evento, eventName) != 0) continue;
+    // Verificar se o trigger bate
+    JsonObject trigger = logica["trigger"];
+    const char* triggerEntity = trigger["entity"];
+    const char* triggerEvent = trigger["event"];
     
-    // Verifica condições
-    if (!checkCondition(logica["conditions"].as<JsonObject>())) {
-      pushLog("  Condições não atendidas");
-      continue;
-    }
+    if (strcmp(triggerEntity, entityName) != 0) continue;
+    if (strcmp(triggerEvent, eventType) != 0) continue;
     
-    pushLog("  Condições atendidas, processando saídas:");
-    JsonObject outputs = logica["outputs"].as<JsonObject>();
+    pushLogf("  📋 Regra encontrada: %s %s", triggerEntity, triggerEvent);
     
-    for (int i = 0; i < 4; i++) {
-      if (!outputs.containsKey(outputNames[i])) continue;
+    // Verificar condições com suporte a AND (e) e OR (ou)
+    bool conditionsMet = true;
+    if (logica["conditions"].is<JsonArray>()) {
+      JsonArray conditions = logica["conditions"].as<JsonArray>();
+      bool andResult = true;  // Acumula resultados de AND
+      bool orResult = false;  // Acumula resultados de OR
+      bool inOrGroup = false; // Se está processando um grupo OR
       
-      JsonObject output = outputs[outputNames[i]];
-      bool enabled = output["enabled"] | false;
-      
-      if (!enabled) continue;
-      
-      int ligarAfter = output["ligar"]["after"] | 0;
-      int desligarAfter = output["desligar"]["after"] | 0;
-      
-      unsigned long now = millis();
-      
-      if (ligarAfter > 0) {
-        outputStates[i].ligarTime = now + (ligarAfter * 1000);
-        pushLogf("    %s: ligar após %ds", outputNames[i], ligarAfter);
+      for (int condIdx = 0; condIdx < conditions.size(); condIdx++) {
+        JsonObject cond = conditions[condIdx];
+        const char* condEntity = cond["entity"];
+        const char* condState = cond["state"];
+        const char* opStr = cond["operator"] | "";
+        
+        bool condResult = checkStateCondition(condEntity, condState);
+        pushLogf("     Condicao: %s %s = %s", condEntity, condState, condResult ? "OK" : "FALHA");
+        
+        // Determinar operador (null/vazio = 'e')
+        bool isOrOperator = (strcmp(opStr, "ou") == 0);
+        
+        if (condIdx == 0) {
+          // Primeira condição
+          andResult = condResult;
+          inOrGroup = false;
+        } else if (isOrOperator) {
+          // Operador é OR: se não estávamos em OR, começa grupo OR
+          if (!inOrGroup) {
+            orResult = andResult || condResult;
+            inOrGroup = true;
+          } else {
+            // Já estava em OR, continua OR
+            orResult = orResult || condResult;
+          }
+        } else {
+          // Operador é AND (ou null)
+          if (inOrGroup) {
+            // Sair do grupo OR e voltar para AND
+            andResult = orResult && condResult;
+            inOrGroup = false;
+          } else {
+            // Continuar AND
+            andResult = andResult && condResult;
+          }
+        }
       }
       
-      if (desligarAfter > 0) {
-        outputStates[i].desligarTime = now + (desligarAfter * 1000);
-        pushLogf("    %s: desligar após %ds", outputNames[i], desligarAfter);
+      // Resultado final
+      if (inOrGroup) {
+        conditionsMet = orResult;
+      } else {
+        conditionsMet = andResult;
+      }
+    }
+    
+    if (!conditionsMet) continue;
+    
+    pushLog("  ✓ Condições atendidas, executando ações:");
+    
+    // Executar ações
+    if (logica["actions"].is<JsonArray>()) {
+      JsonArray actions = logica["actions"].as<JsonArray>();
+      unsigned long now = millis();
+      
+      for (JsonObject action : actions) {
+        const char* outputName = action["output"];
+        int outputIdx = getEntityIndex(outputName);
+        
+        if (outputIdx < 4 || outputIdx >= 8) continue; // Deve ser saída (4-7)
+        
+        // Processar "ligar": se existe e não é null, usa o valor; senão -1
+        int ligarAfter = -1;
+        if (action.containsKey("ligar") && !action["ligar"].isNull()) {
+          ligarAfter = action["ligar"].as<int>();
+        }
+        
+        // Processar "desligar": se existe e não é null, usa o valor; senão -1
+        int desligarAfter = -1;
+        if (action.containsKey("desligar") && !action["desligar"].isNull()) {
+          desligarAfter = action["desligar"].as<int>();
+        }
+        
+        // Agendar ações baseado nos valores
+        if (ligarAfter >= 0) {
+          // Agendar para ligar após X segundos
+          entityStates[outputIdx].ligarTime = now + (ligarAfter * 1000);
+          pushLogf("     💡 %s: ligar em %ds", outputName, ligarAfter);
+          
+          // Se desligar também foi especificado, é a DURAÇÃO ligado
+          if (desligarAfter >= 0) {
+            entityStates[outputIdx].desligarTime = now + (ligarAfter * 1000) + (desligarAfter * 1000);
+            pushLogf("     💡 %s: desligar após %ds ligado (total %ds)", outputName, desligarAfter, ligarAfter + desligarAfter);
+          } else {
+            // Sem desligar = fica ligado indefinidamente
+            entityStates[outputIdx].desligarTime = 0;
+          }
+        } else if (desligarAfter >= 0) {
+          // Apenas desligar (sem ligar antes)
+          entityStates[outputIdx].desligarTime = now + (desligarAfter * 1000);
+          pushLogf("     💡 %s: desligar em %ds", outputName, desligarAfter);
+        }
       }
     }
   }
 }
 
+// Atualizar estado das saídas com base em temporizadores
 void updateOutputs() {
   unsigned long now = millis();
   
-  for (int i = 0; i < 4; i++) {
+  for (int i = 4; i < 8; i++) { // Outputs são índices 4-7
+    int outputPin = outputPins[i - 4];
+    
     // Verifica se deve ligar
-    if (outputStates[i].ligarTime > 0 && now >= outputStates[i].ligarTime) {
-      digitalWrite(outputPins[i], HIGH);
-      outputStates[i].active = true;
-      outputStates[i].ligarTime = 0;
-      pushLogf("✓ %s LIGADO", outputNames[i]);
+    if (entityStates[i].ligarTime > 0 && now >= entityStates[i].ligarTime) {
+      digitalWrite(outputPin, HIGH);
+      bool wasOn = entityStates[i].current;
+      entityStates[i].current = true;
+      entityStates[i].ligarTime = 0;
+      pushLogf("✓ %s LIGADO", entityNames[i]);
+      
+      // Se estava desligado e agora ligou, disparar evento "ligou"
+      if (!wasOn) {
+        entityStates[i].previous = false;
+        processStateChange(i, "ligou");
+      }
     }
     
     // Verifica se deve desligar
-    if (outputStates[i].desligarTime > 0 && now >= outputStates[i].desligarTime) {
-      digitalWrite(outputPins[i], LOW);
-      outputStates[i].active = false;
-      outputStates[i].desligarTime = 0;
-      pushLogf("✗ %s DESLIGADO", outputNames[i]);
-    }
-  }
-}
-
-void handleEvent(const char* eventName) {
-  if (strcmp(eventName, "ignicao_on") == 0) {
-    processEvent("ignicao_on");
-    ignicaoOffTimeoutActive = false;
-    failsafeTriggered = false;
-    pushLog("✓ Ignição ligada - fail-safe desativado");
-    
-    // Contador de ligadas para toggle WiFi
-    unsigned long now = millis();
-    if (now - lastIgnicaoToggle > IGNICAO_TOGGLE_WINDOW) {
-      ignicaoToggleCount = 0; // Reset se passou muito tempo
-    }
-    ignicaoToggleCount++;
-    lastIgnicaoToggle = now;
-    
-    if (ignicaoToggleCount >= 5) {
-      if (wifiEnabled) {
-        disableWiFi();
-      } else {
-        enableWiFi();
+    if (entityStates[i].desligarTime > 0 && now >= entityStates[i].desligarTime) {
+      digitalWrite(outputPin, LOW);
+      bool wasOn = entityStates[i].current;
+      entityStates[i].current = false;
+      entityStates[i].desligarTime = 0;
+      pushLogf("✗ %s DESLIGADO", entityNames[i]);
+      
+      // Se estava ligado e agora desligou, disparar evento "desligou"
+      if (wasOn) {
+        entityStates[i].previous = true;
+        processStateChange(i, "desligou");
       }
-      ignicaoToggleCount = 0;
-    } else {
-      pushLogf("🔑 Ignição ligada %d/5 (toggle WiFi)", ignicaoToggleCount);
     }
-    return;
   }
-  
-  if (strcmp(eventName, "ignicao_off") == 0) {
-    processEvent("ignicao_off");
-    ignicaoOffTime = millis();
-    ignicaoOffTimeoutActive = true;
-    failsafeTriggered = false;
-    pushLogf("⏱️  Ignição desligada - fail-safe ativo em %d segundos", TIMEOUT_IGNICAO_OFF/1000);
-    return;
-  }
-  
-  processEvent(eventName);
 }
 
+// Monitorar entradas e disparar eventos de mudança
 void checkInputs() {
   unsigned long now = millis();
-  bool anyChange = false;
-  
-  bool evIgnicaoOn = false;
-  bool evIgnicaoOff = false;
-  bool evPortaAbriu = false;
-  bool evPortaFechou = false;
-  bool evTravou = false;
-  bool evDestravou = false;
   
   for (int i = 0; i < 4; i++) {
-    bool reading = digitalRead(inputPins[i]);
+    bool reading = (digitalRead(inputPins[i]) == LOW); // LOW = ativado (pull-up)
     
     // Debounce
-    if (reading != inputStates[i].current) {
-      if (now - inputStates[i].lastChange > inputStates[i].debounce) {
-        inputStates[i].previous = inputStates[i].current;
-        inputStates[i].current = reading;
-        inputStates[i].lastChange = now;
-        anyChange = true;
+    if (reading != entityStates[i].current) {
+      if (now - entityStates[i].lastChange > entityStates[i].debounce) {
+        entityStates[i].previous = entityStates[i].current;
+        entityStates[i].current = reading;
+        entityStates[i].lastChange = now;
         
-        // Detectar mudança de HIGH para LOW (botão pressionado com pull-up)
-        if (inputStates[i].previous == HIGH && inputStates[i].current == LOW) {
-          switch(i) {
-            case 0: evIgnicaoOn = true; break;
-            case 1: evPortaAbriu = true; break;
-            case 2: evDestravou = true; break;
-            case 3: evTravou = true; break;
+        // Detectar tipo de mudança
+        const char* eventType = nullptr;
+        
+        if (i == 0) { // ignição
+          if (reading) { // Ligou
+            eventType = "ligou";
+            ignicaoOffTimeoutActive = false;
+            failsafeTriggered = false;
+            
+            // Contador para toggle WiFi
+            if (now - lastIgnicaoToggle > IGNICAO_TOGGLE_WINDOW) {
+              ignicaoToggleCount = 0;
+            }
+            ignicaoToggleCount++;
+            lastIgnicaoToggle = now;
+            
+            if (ignicaoToggleCount >= 5) {
+              if (wifiEnabled) disableWiFi();
+              else enableWiFi();
+              ignicaoToggleCount = 0;
+            } else {
+              pushLogf("🔑 Ignição %d/5 (toggle WiFi)", ignicaoToggleCount);
+            }
+          } else { // Desligou
+            eventType = "desligou";
+            ignicaoOffTime = millis();
+            ignicaoOffTimeoutActive = true;
+            failsafeTriggered = false;
+            pushLogf("⏱️ Fail-safe ativo em %ds", TIMEOUT_IGNICAO_OFF/1000);
           }
+        } else if (i == 1) { // porta
+          eventType = reading ? "abriu" : "fechou";
+        } else if (i == 2) { // trava
+          if (reading) eventType = "ligou"; // Apenas quando pressionado
+        } else if (i == 3) { // destrava
+          if (reading) eventType = "ligou"; // Apenas quando pressionado
         }
-        // Detectar mudança de LOW para HIGH (botão liberado)
-        else if (inputStates[i].previous == LOW && inputStates[i].current == HIGH) {
-          switch(i) {
-            case 0: evIgnicaoOff = true; break;
-            case 1: evPortaFechou = true; break;
-          }
+        
+        if (eventType) {
+          processStateChange(i, eventType);
         }
       }
     }
   }
-  
-  if (!anyChange) return;
-  
-  // Intertravamento: ignicao_on tem prioridade sobre ignicao_off no mesmo ciclo
-  if (evIgnicaoOn) evIgnicaoOff = false;
-  
-  // Intertravamento: travou tem prioridade sobre destravou no mesmo ciclo
-  if (evTravou) evDestravou = false;
-  
-  // Prioridade: ignicao_on > ignicao_off > travou > destravou > porta_abriu > porta_fechou
-  if (evIgnicaoOn) handleEvent("ignicao_on");
-  if (evIgnicaoOff) handleEvent("ignicao_off");
-  if (evTravou) handleEvent("travou");
-  if (evDestravou) handleEvent("destravou");
-  if (evPortaAbriu) handleEvent("porta_abriu");
-  if (evPortaFechou) handleEvent("porta_fechou");
 }
 
 // ============= SETUP =============
@@ -386,26 +443,24 @@ void setup() {
   pinMode(PIN_PES, OUTPUT);
   
   // Desligar todas as saídas
-  digitalWrite(PIN_FAROL, LOW);
-  digitalWrite(PIN_DRL, LOW);
-  digitalWrite(PIN_INTERNA, LOW);
-  digitalWrite(PIN_PES, LOW);
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(outputPins[i], LOW);
+  }
   
   // Inicializar sistema de arquivos
   initFileSystem();
   loadConfig();
   
-  // Configurar WiFi em modo AP (inicia ligado na primeira vez)
+  // Configurar WiFi em modo AP
   if (wifiEnabled) {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(wifiSSID.c_str(), AP_PASSWORD);
     IPAddress IP = WiFi.softAPIP();
-    pushLog(String("AP iniciado: ") + wifiSSID);
-    pushLog(String("Endereço IP: ") + IP.toString());
-    pushLog("💡 Dica: Ligue/desligue ignição 5x em 10s para desligar WiFi");
+    pushLog(String("AP: ") + wifiSSID);
+    pushLog(String("IP: ") + IP.toString());
+    pushLog("💡 5x ignição em 10s = toggle WiFi");
   } else {
     WiFi.mode(WIFI_OFF);
-    pushLog("WiFi desligado (economia de bateria)");
   }
   
   // ===== ROTAS DO SERVIDOR =====
@@ -416,7 +471,7 @@ void setup() {
     if (LittleFS.exists("/index.html")) {
       request->send(LittleFS, "/index.html", "text/html");
     } else {
-      request->send(404, "text/plain", "Arquivo index.html não encontrado");
+      request->send(404, "text/plain", "index.html não encontrado");
     }
   });
   
@@ -432,7 +487,7 @@ void setup() {
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
       if (!request->authenticate(AUTH_USER, AUTH_PASS)) {
-        request->send(401, "application/json", "{\"success\":false,\"error\":\"unauthorized\"}");
+        request->send(401, "application/json", "{\"success\":false}");
         return;
       }
       static String jsonBuffer;
@@ -468,7 +523,7 @@ void setup() {
   server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
       if (!request->authenticate(AUTH_USER, AUTH_PASS)) {
-        request->send(401, "application/json", "{\"success\":false,\"error\":\"unauthorized\"}");
+        request->send(401, "application/json", "{\"success\":false}");
         return;
       }
       static String jsonBuffer;
@@ -481,46 +536,33 @@ void setup() {
         DeserializationError error = deserializeJson(doc, jsonBuffer);
         
         if (error) {
-          request->send(400, "application/json", "{\"success\":false,\"error\":\"JSON inválido\"}");
+          request->send(400, "application/json", "{\"success\":false}");
           return;
         }
         
-        // Atualizar SSID
         if (doc["wifiSSID"].is<const char*>() && strlen(doc["wifiSSID"]) > 0) {
           wifiSSID = doc["wifiSSID"].as<const char*>();
           configDoc["wifiSSID"] = wifiSSID;
-          pushLogf("WiFi SSID alterado para: %s", wifiSSID.c_str());
         }
         
-        // Atualizar BCM Name
         if (doc["bcmName"].is<const char*>() && strlen(doc["bcmName"]) > 0) {
           bcmName = doc["bcmName"].as<const char*>();
           configDoc["bcmName"] = bcmName;
-          pushLogf("BCM Name alterado para: %s", bcmName.c_str());
         }
         
-        // Salvar configuração
         String jsonStr;
         serializeJson(configDoc, jsonStr);
         saveConfig(jsonStr);
         
-        request->send(200, "application/json", "{\"success\":true,\"message\":\"Configurações atualizadas. WiFi será reiniciado na próxima vez que for ativado.\"}");
+        request->send(200, "application/json", "{\"success\":true}");
       }
     }
   );
   
-  // Resetar configuração
-  server.on("/api/reset", HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!checkAuth(request)) return;
-    configDoc.clear();
-    LittleFS.remove("/config.json");
-    request->send(200, "application/json", "{\"success\":true}");
-  });
-  
   // Reiniciar ESP32
   server.on("/api/restart", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!checkAuth(request)) return;
-    request->send(200, "application/json", "{\"success\":true,\"message\":\"ESP32 reiniciando...\"}");
+    request->send(200, "application/json", "{\"success\":true}");
     delay(500);
     ESP.restart();
   });
@@ -533,10 +575,10 @@ void setup() {
     doc["freeHeap"] = ESP.getFreeHeap();
     
     JsonObject inputs = doc["inputs"].to<JsonObject>();
-    inputs["ignicao"] = digitalRead(PIN_IGNICAO) == LOW;
-    inputs["porta"] = digitalRead(PIN_PORTA) == LOW;
-    inputs["trava"] = digitalRead(PIN_TRAVA) == LOW;
-    inputs["destrava"] = digitalRead(PIN_DESTRAVA) == LOW;
+    inputs["ignicao"] = entityStates[0].current;
+    inputs["porta"] = entityStates[1].current;
+    inputs["trava"] = entityStates[2].current;
+    inputs["destrava"] = entityStates[3].current;
     
     JsonObject outputs = doc["outputs"].to<JsonObject>();
     outputs["farol"] = digitalRead(PIN_FAROL);
@@ -553,7 +595,7 @@ void setup() {
   server.on("/api/output/toggle", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
       if (!request->authenticate(AUTH_USER, AUTH_PASS)) {
-        request->send(401, "application/json", "{\"success\":false,\"error\":\"unauthorized\"}");
+        request->send(401, "application/json", "{\"success\":false}");
         return;
       }
       static String jsonBuffer;
@@ -566,36 +608,29 @@ void setup() {
         DeserializationError error = deserializeJson(doc, jsonBuffer);
         
         if (error) {
-          request->send(400, "application/json", "{\"success\":false,\"error\":\"JSON inválido\"}");
+          request->send(400, "application/json", "{\"success\":false}");
           return;
         }
         
         const char* output = doc["output"];
         if (!output) {
-          request->send(400, "application/json", "{\"success\":false,\"error\":\"Campo 'output' obrigatório\"}");
+          request->send(400, "application/json", "{\"success\":false}");
           return;
         }
         
-        // Encontrar a saída
-        int outputIndex = -1;
-        for (int i = 0; i < 4; i++) {
-          if (strcmp(outputNames[i], output) == 0) {
-            outputIndex = i;
-            break;
-          }
-        }
-        
-        if (outputIndex == -1) {
-          request->send(400, "application/json", "{\"success\":false,\"error\":\"Saída inválida\"}");
+        int outputIndex = getEntityIndex(output);
+        if (outputIndex < 4 || outputIndex >= 8) {
+          request->send(400, "application/json", "{\"success\":false}");
           return;
         }
         
-        // Toggle do estado da saída
-        int currentState = digitalRead(outputPins[outputIndex]);
+        int pinIdx = outputIndex - 4;
+        int currentState = digitalRead(outputPins[pinIdx]);
         int newState = !currentState;
-        digitalWrite(outputPins[outputIndex], newState);
+        digitalWrite(outputPins[pinIdx], newState);
+        entityStates[outputIndex].current = newState;
         
-        pushLogf("🔧 Controle manual: %s -> %s", outputNames[outputIndex], newState ? "ON" : "OFF");
+        pushLogf("🔧 Manual: %s -> %s", output, newState ? "ON" : "OFF");
         
         request->send(200, "application/json", "{\"success\":true}");
       }
@@ -607,7 +642,6 @@ void setup() {
     if (!checkAuth(request)) return;
     JsonDocument doc;
     JsonArray arr = doc["logs"].to<JsonArray>();
-    // retornar do mais antigo ao mais recente
     for (size_t i = 0; i < logCount; i++) {
       size_t idx = (logHead + LOG_CAPACITY - logCount + i) % LOG_CAPACITY;
       arr.add(logBuffer[idx]);
@@ -616,10 +650,10 @@ void setup() {
     serializeJson(doc, payload);
     request->send(200, "application/json", payload);
   });
-  
+
   server.begin();
   pushLog("Servidor HTTP iniciado");
-  pushLog("Acesse: http://192.168.4.1");
+  pushLog("http://192.168.4.1");
 }
 
 // ============= LOOP =============
@@ -628,7 +662,7 @@ void loop() {
   checkInputs();
   updateOutputs();
   
-  // Verificar fail-safe por timeout de ignição desligada
+  // Verificar fail-safe
   if (ignicaoOffTimeoutActive && !failsafeTriggered) {
     if (millis() - ignicaoOffTime >= TIMEOUT_IGNICAO_OFF) {
       shutdownAllOutputs();
@@ -636,5 +670,5 @@ void loop() {
     }
   }
   
-  delay(10); // Pequeno delay para estabilidade
+  delay(10);
 }

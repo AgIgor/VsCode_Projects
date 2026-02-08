@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BCM Automotiva</title>
+  <title>BCM Automotiva - Ladder Logic</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -20,30 +20,29 @@
     * { box-sizing: border-box; }
     body { 
       margin: 0; 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Courier New', monospace;
       background: var(--bg); 
       color: var(--text); 
       line-height: 1.6;
     }
     
-    .container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0.75rem; }
     
     header { 
       background: linear-gradient(135deg, #0b1020 0%, #111827 100%);
       border-bottom: 2px solid var(--accent);
-      padding: 2rem 1rem;
-      margin-bottom: 2rem;
+      padding: 1.5rem 1rem;
+      margin-bottom: 1rem;
       border-radius: 12px;
     }
-    h1 { margin: 0; font-size: 1.8rem; color: var(--accent); }
-    .subtitle { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.95rem; }
+    h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
+    .subtitle { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.85rem; }
 
     .toolbar { 
       display: flex; 
-      gap: 1rem; 
-      margin-bottom: 2rem; 
+      gap: 0.5rem; 
+      margin-bottom: 1rem; 
       flex-wrap: wrap;
-      align-items: center;
     }
     
     .btn { 
@@ -51,13 +50,13 @@
       color: #001318; 
       border: none; 
       border-radius: 8px; 
-      padding: 0.65rem 1.2rem; 
+      padding: 0.55rem 1rem; 
       font-weight: 600; 
       cursor: pointer; 
-      font-size: 0.95rem; 
+      font-size: 0.85rem; 
       transition: all 0.2s;
     }
-    .btn:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3); }
+    .btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
     .btn.secondary { 
       background: transparent; 
       color: var(--text); 
@@ -66,190 +65,130 @@
     .btn.secondary:hover { background: rgba(34, 211, 238, 0.1); }
     .btn.danger { background: var(--danger); color: white; }
     .btn.danger:hover { background: #dc2626; }
-    .btn-small { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
 
-    .content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
-    
     .card { 
       background: var(--card); 
       border: 1px solid var(--border); 
       border-radius: 12px; 
       overflow: hidden;
-      transition: border-color 0.2s;
+      margin-bottom: 1rem;
     }
-    .card:hover { border-color: var(--accent); }
 
     .card-header { 
       background: linear-gradient(90deg, #0b1020 0%, #151b2a 100%);
-      padding: 1rem;
-      display: flex; 
-      align-items: center; 
-      justify-content: space-between;
+      padding: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
       cursor: pointer;
       user-select: none;
-      border-bottom: 1px solid var(--border);
-    }
-    .card-header:hover { background: linear-gradient(90deg, #151b2a 0%, #1f2937 100%); }
-    
-    .card-title { 
-      font-weight: 600; 
-      color: var(--accent); 
-      font-size: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex: 1;
     }
     
-    .card-badge { 
-      background: rgba(34, 211, 238, 0.2); 
-      color: var(--accent);
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    
-    .caret { 
-      display: inline-block; 
-      transition: transform 0.3s;
-      font-size: 0.8rem;
-      margin-left: auto;
-    }
-    .card.collapsed .caret { transform: rotate(-90deg); }
-
     .card-body { 
       display: none; 
-      padding: 1.5rem; 
+      padding: 1rem; 
       border-top: 1px solid var(--border);
     }
+    
     .card.open .card-body { display: block; }
 
     .form-group { 
       display: grid; 
-      grid-template-columns: auto 1fr; 
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1rem;
+      grid-template-columns: 1fr; 
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
     }
-    .form-group:last-child { margin-bottom: 0; }
     
     .form-label { 
       font-weight: 500; 
       color: var(--text);
-      font-size: 0.9rem;
-      min-width: 140px;
+      font-size: 0.85rem;
     }
     
-    input[type="number"], select { 
+    textarea, input[type="text"], select { 
       padding: 0.6rem 0.8rem; 
       border-radius: 8px; 
       border: 1px solid var(--border); 
       background: #0b1020; 
       color: var(--text); 
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      font-family: 'Courier New', monospace;
       transition: border-color 0.2s;
     }
-    input[type="number"]:focus, select:focus { 
+    
+    textarea:focus, input:focus, select:focus { 
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
     }
-
-    .section-divider { 
-      border-top: 1px solid var(--border); 
-      margin: 1.5rem 0; 
-      padding-top: 1.5rem;
-    }
-    .section-label { 
-      font-weight: 600; 
-      color: var(--accent);
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1rem;
-      display: block;
-    }
-
-    .outputs-grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-      gap: 1rem;
-    }
     
-    .output-item {
-      background: rgba(34, 211, 238, 0.05);
-      border: 1px solid rgba(34, 211, 238, 0.2);
-      border-radius: 10px;
-      padding: 1rem;
-    }
-    
-    .output-name { 
-      font-weight: 600; 
-      color: var(--accent);
-      margin-bottom: 0.75rem;
-      font-size: 0.95rem;
-    }
-
-    .output-subtitle {
-      font-weight: 600;
-      color: var(--muted);
-      margin: 0.25rem 0 0.35rem;
+    textarea {
+      resize: vertical;
+      min-height: 150px;
       font-size: 0.85rem;
+      line-height: 1.8;
     }
 
-    .output-delays {
+    .rungs-list {
       display: grid;
-      grid-template-columns: 1fr;
       gap: 0.75rem;
     }
+    
+    .rung-item {
+      background: rgba(34, 211, 238, 0.05);
+      border: 2px solid rgba(34, 211, 238, 0.2);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+    
+    .rung-text {
+      color: var(--text);
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .rung-status {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    
+    .rung-status.success { color: var(--success); }
+    .rung-status.error { color: var(--danger); }
 
     .actions-row { 
       display: flex; 
-      gap: 0.75rem; 
-      margin-top: 1.5rem; 
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border);
+      gap: 0.5rem; 
+      margin-top: 1rem;
+      flex-wrap: wrap;
     }
 
     .help-text {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--muted);
-      margin-top: 0.25rem;
-      font-style: italic;
+      margin-top: 0.5rem;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     .empty-state {
       text-align: center;
-      padding: 2rem;
+      padding: 1.5rem;
       color: var(--muted);
-    }
-    .empty-state-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-
-    pre { 
-      margin: 0; 
-      white-space: pre-wrap; 
-      word-break: break-word; 
-      background: #0b1020; 
-      border: 1px solid var(--border); 
-      border-radius: 8px; 
-      padding: 1rem; 
-      font-size: 0.8rem; 
-      max-height: 300px; 
-      overflow-y: auto;
-      font-family: 'Monaco', 'Menlo', monospace;
     }
 
     .toast {
       position: fixed;
-      bottom: 2rem;
-      right: 2rem;
+      bottom: 1.5rem;
+      right: 1.5rem;
       background: var(--success);
       color: white;
-      padding: 1rem 1.5rem;
+      padding: 0.75rem 1.25rem;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       animation: slideIn 0.3s ease-out;
+      font-size: 0.9rem;
+      z-index: 1000;
     }
     @keyframes slideIn {
       from { transform: translateX(400px); opacity: 0; }
@@ -258,48 +197,29 @@
 
     .status-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 0.75rem;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
     }
     .status-item {
       background: #0b1020;
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.65rem;
+      padding: 0.5rem;
       display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .status-item-header {
-      display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 0.5rem;
+      align-items: center;
     }
     .status-label {
       font-weight: 500;
-      color: var(--text);
-      font-size: 0.85rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .status-value {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-weight: 600;
       font-size: 0.8rem;
-      white-space: nowrap;
     }
     .status-indicator {
       width: 10px;
       height: 10px;
       border-radius: 50%;
       display: inline-block;
-      flex-shrink: 0;
     }
-    .status-on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-on { background: var(--success); }
     .status-off { background: #374151; }
     
     .control-btn {
@@ -307,953 +227,536 @@
       color: #001318;
       border: none;
       border-radius: 5px;
-      padding: 0.4rem 0.6rem;
+      padding: 0.4rem 1rem;
       font-weight: 600;
       cursor: pointer;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       transition: all 0.2s;
       width: 100%;
+      margin-top: 0.5rem;
     }
     .control-btn:hover {
       background: var(--accent-dark);
-      transform: translateY(-1px);
-    }
-    .control-btn:active {
-      transform: translateY(0);
-    }
-    .status-section-title {
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 0.75rem;
-      font-size: 0.9rem;
-    }
-    
-    /* Otimização para mobile */
-    @media (max-width: 768px) {
-      .status-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
-      }
-      .status-item {
-        padding: 0.5rem;
-        gap: 0.4rem;
-      }
-      .status-label {
-        font-size: 0.75rem;
-      }
-      .status-value {
-        font-size: 0.7rem;
-      }
-      .control-btn {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.7rem;
-      }
-      .status-section-title {
-        font-size: 0.85rem;
-        margin-bottom: 0.5rem;
-      }
-    }
-      font-size: 0.95rem;
+      transform: translateY(-2px);
     }
 
-    .log-area {
-      background: #0b1020;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 0.85rem;
-      max-height: 250px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .toolbar .spacer { flex: 1; }
-
-    @media (max-width: 768px) {
-      .form-group { grid-template-columns: 1fr; }
-      .form-label { min-width: auto; }
-      .toolbar { flex-direction: column; }
-      .btn { width: 100%; }
+    @media (max-width: 480px) {
+      .container { padding: 0.5rem; }
+      textarea { min-height: 120px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1 id="bcm-title">⚡ BCM_ESP32</h1>
-      <p class="subtitle">Configure as lógicas de iluminação do seu veículo</p>
+      <h1 id="bcm-title">E BCM_ESP32</h1>
+      <p class="subtitle">Ladder Logic em Formato Texto</p>
     </header>
 
     <div class="toolbar">
-      <button class="btn" id="addLogic">+ Adicionar Lógica</button>
-      <button class="btn secondary" id="saveAll">Salvar</button>
-      <div class="spacer"></div>
+      <button class="btn" id="saveAll">Salvar</button>
       <button class="btn secondary" id="exportConfig">Exportar</button>
       <button class="btn secondary" id="importConfig">Importar</button>
       <input type="file" id="importFile" accept="application/json" style="display:none;" />
     </div>
 
-    <div id="logics-container" class="content">
-      <!-- Lógicas adicionadas aqui -->
-    </div>
-
-    <div id="empty-state" class="card">
-      <div class="empty-state">
-        <div class="empty-state-icon">📋</div>
-        <p><strong>Nenhuma lógica criada ainda</strong></p>
-        <p style="color: var(--muted); margin: 0;">Clique em "+ Adicionar Lógica" para começar</p>
-      </div>
-    </div>
-
-    <div class="card open" id="status-card" style="margin-top: 2rem;">
-      <div class="card-header" id="status-header">
-        <span class="card-title">
-          📡 Monitor de Entradas e Saídas
-          <span class="caret">▼</span>
-        </span>
-      </div>
-      <div class="card-body">
-        <div class="status-section-title">🔌 Entradas Digitais</div>
-        <div class="status-grid" id="inputs-status">
-          <div class="status-item">
-            <span class="status-label">Ignição</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Porta</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>Fechada</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Trava</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Destrava</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="status-section-title" style="margin-top: 1.5rem;">💡 Saídas Digitais</div>
-        <div class="status-grid" id="outputs-status">
-          <div class="status-item">
-            <span class="status-label">Farol</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">DRL</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Luz Interna</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Luz dos Pés</span>
-            <div class="status-value">
-              <span class="status-indicator status-off"></span>
-              <span>OFF</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card collapsed" id="logs-card" style="margin-top: 1.5rem;">
-      <div class="card-header" id="logs-header">
-        <span class="card-title">
-          🪵 Log do Monitor Serial
-          <span class="caret">▼</span>
-        </span>
-      </div>
-      <div class="card-body">
-        <div class="log-area" id="logs-view">Carregando logs...</div>
-      </div>
-    </div>
-
-    <div class="card collapsed" id="preview-card" style="margin-top: 2rem;">
-      <div class="card-header" id="preview-header">
-        <span class="card-title">
-          📊 Prévia JSON
-          <span class="caret">▼</span>
-        </span>
-      </div>
-      <div class="card-body">
-        <pre id="preview">{
-  "logicas": []
-}</pre>
-      </div>
-    </div>
-
-    <div class="card collapsed" id="settings-card" style="margin-top: 2rem;">
-      <div class="card-header" id="settings-header">
-        <span class="card-title">
-          ⚙️ Configurações
-          <span class="caret">▼</span>
-        </span>
+    <!-- Editor Ladder -->
+    <div class="card open" id="editor-card">
+      <div class="card-header">
+        📐 Degraus Ladder
       </div>
       <div class="card-body">
         <div class="form-group">
-          <label class="form-label">Nome da BCM:</label>
-          <input type="text" id="bcmNameInput" maxlength="32" placeholder="Ex: BCM_ESP32">
+          <label class="form-label">Degraus (um por linha):</label>
+          <textarea id="ladderInput" placeholder="Exemplos:
+
+-|ignicao|-  -( farol )
+--|ignicao|--  -/ farol
+-|trava|-  -( farol ) (+1s:20s)
+-|trava|-  --|farol|--  -( farol ) (+1s:30s)
+-|porta|-  +  -|ignicao|-  -( drl )"></textarea>
+          
+          <div class="help-text">
+            <strong>CONTATOS (Entradas/Saidas):</strong><br/>
+            ignicao, porta, trava, destrava, farol, drl, luz-interna, luz-assoalho<br/>
+            <br/>
+            <strong>OPERADORES:</strong><br/>
+            -| contato |- = Contato normalmente aberto (NO) / ligado<br/>
+            --;| contato |-- = Contato normalmente fechado (NC) / desligado / inverso<br/>
+            | + | = Paralelo (OR)<br/>
+            | -- - | = Serie (AND)<br/>
+            <br/>
+            <strong>SAIDAS:</strong><br/>
+            -( ) = LIGAR saida<br/>
+            -/ = DESLIGAR saida<br/>
+            <br/>
+            <strong>TIMING:</strong><br/>
+            -( farol ) (+2s) = liga apos 2s e desliga apos mais 5s total<br/>
+          </div>
         </div>
-        <div class="help-text">Nome que aparecerá no topo da página</div>
-        
-        <div class="section-divider"></div>
-        
-        <div class="form-group">
-          <label class="form-label">SSID WiFi:</label>
-          <input type="text" id="wifiSSIDInput" maxlength="32" placeholder="Ex: BCM_ESP32">
-        </div>
-        <div class="help-text">Nome da rede WiFi (máximo 32 caracteres)</div>
         
         <div class="actions-row">
-          <button class="btn" id="saveSettings">Salvar Configurações</button>
-          <button class="btn secondary" id="loadSettings">Recarregar</button>
+          <button class="btn" id="addRung">Adicionar</button>
+          <button class="btn secondary" id="clearInput">Limpar</button>
         </div>
-        
-        <div class="section-divider"></div>
-        
-        <div class="help-text" style="margin-bottom: 1rem;">
-          ⚠️ Reinicie o ESP32 para aplicar as alterações de WiFi SSID
+
+        <span style="font-weight: 600; color: var(--accent); display: block; margin-top: 1.5rem; margin-bottom: 0.75rem;">📋 Degraus Ativos</span>
+        <div class="rungs-list" id="rungsList">
+          <div class="empty-state">Nenhum degrau</div>
         </div>
-        <button class="btn danger" id="restartESP" style="width: 100%;">🔄 Reiniciar ESP32</button>
       </div>
     </div>
 
-    <div style="margin-top: 2rem; text-align: center;">
-      <button class="btn secondary danger" id="resetAll" style="max-width: 300px;">🗑️ Limpar Todas as Lógicas</button>
+    <!-- Status Monitor -->
+    <div class="card open" id="status-card">
+      <div class="card-header">
+        🔌 Status
+      </div>
+      <div class="card-body">
+        <div style="margin-bottom: 1rem;">
+          <div style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">Entradas</div>
+          <div class="status-grid" id="inputs-status"></div>
+        </div>
+
+        <div>
+          <div style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">Saidas</div>
+          <div class="status-grid" id="outputs-status"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="card collapsed" id="logs-card">
+      <div class="card-header">
+        📝 Logs
+      </div>
+      <div class="card-body">
+        <div style="background: #0b1020; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-family: 'Courier New', monospace; font-size: 0.75rem; max-height: 200px; overflow-y: auto; white-space: pre-wrap;" id="logs-view">Sem logs</div>
+      </div>
+    </div>
+
+    <!-- JSON Preview -->
+    <div class="card collapsed" id="preview-card">
+      <div class="card-header">
+        {} JSON (Configuracao)
+      </div>
+      <div class="card-body">
+        <pre style="margin: 0; white-space: pre-wrap; background: #0b1020; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-size: 0.75rem; max-height: 200px; overflow-y: auto;" id="preview">{}</pre>
+      </div>
     </div>
   </div>
 
   <script>
-    const EVENTOS = [
-      { key: 'destravou', label: '🔓 Destravou' },
-      { key: 'travou', label: '🔒 Travou' },
-      { key: 'ignicao_on', label: '🔑 Ignição ligou' },
-      { key: 'ignicao_off', label: '❌ Ignição desligou' },
-      { key: 'porta_abriu', label: '🚪 Abriu porta' },
-      { key: 'porta_fechou', label: '🚪 Fechou porta' },
-    ];
+    const INPUTS = ['ignicao', 'porta', 'trava', 'destrava'];
+    const OUTPUTS = ['farol', 'drl', 'luz-interna', 'luz-assoalho'];
+    const ALL_ENTITIES = [...INPUTS, ...OUTPUTS];
+    
+    let rungs = [];
 
-    const SAIDAS = [
-      { key: 'farol', label: 'Farol' },
-      { key: 'drl', label: 'DRL' },
-      { key: 'interna', label: 'Luz interna' },
-      { key: 'pes', label: 'Luz dos pés' },
-    ];
+    // Parser Ladder em texto
+    function parseLadder(text) {
+      // Formato: -|entity|-- | contatos -( saida ) | timing
+      text = text.trim();
+      if (!text) return { error: 'Linha vazia' };
 
-    let logicCounter = 0;
+      // Validar presenca de saida
+      if (!text.includes('-(') && !text.includes('-/')) {
+        return { error: 'Saida nao encontrada (-( ... ) ou -/)' };
+      }
 
-    function createLogicCard(id = null, data = null) {
-      id = id || `logic_${++logicCounter}`;
+      // Separar contatos de saida
+      let contactsStr, outputStr;
+      if (text.includes('-(')) {
+        [contactsStr, outputStr] = text.split('-(');
+        outputStr = '(' + outputStr;
+      } else {
+        [contactsStr, outputStr] = text.split('-/');
+        outputStr = '/' + outputStr;
+      }
+
+      // Parse saida
+      const outputCmd = outputStr.startsWith('(') ? 'ligar' : 'desligar';
+      const outputContent = outputStr.replace(/[()\/]/g, '').trim();
+      const outputParts = outputContent.match(/([a-z\-]+)\s*(?:\(\+?(\d+)s(?::(\d+)s)?\))?/);
       
-      const card = document.createElement('div');
-      card.className = 'card collapsed';
-      card.id = `card_${id}`;
+      if (!outputParts) {
+        return { error: 'Saida invalida' };
+      }
 
-      const header = document.createElement('div');
-      header.className = 'card-header';
-      
-      const title = document.createElement('span');
-      title.className = 'card-title';
-      
-      const caret = document.createElement('span');
-      caret.className = 'caret';
-      caret.textContent = '▼';
-      
-      header.appendChild(title);
-      header.appendChild(caret);
-      
-      const body = document.createElement('div');
-      body.className = 'card-body';
+      const output = outputParts[1];
+      if (!ALL_ENTITIES.includes(output)) {
+        return { error: 'Saida nao conhecida: ' + output };
+      }
 
-      // Handler para abrir/fechar
-      header.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
-        card.classList.toggle('collapsed');
-        card.classList.toggle('open');
-      });
+      // Parse timing
+      let ligar = null, desligar = null;
+      if (outputParts[2]) {
+        const delay = parseInt(outputParts[2]);
+        if (outputCmd === 'ligar') {
+          ligar = delay;
+          desligar = outputParts[3] ? parseInt(outputParts[3]) - delay : null;
+        } else {
+          desligar = delay;
+        }
+      } else {
+        if (outputCmd === 'ligar') ligar = 0;
+        else desligar = 0;
+      }
 
-      // Evento trigger
-      const eventoGroup = document.createElement('div');
-      eventoGroup.className = 'form-group';
-      const eventoLabel = document.createElement('label');
-      eventoLabel.className = 'form-label';
-      eventoLabel.textContent = 'Quando:';
-      const eventoSelect = document.createElement('select');
-      eventoSelect.id = `${id}_evento`;
-      
-      const defaultOpt = document.createElement('option');
-      defaultOpt.value = '';
-      defaultOpt.textContent = '⚠️ Selecione um evento...';
-      defaultOpt.disabled = true;
-      eventoSelect.appendChild(defaultOpt);
-      
-      EVENTOS.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.key;
-        opt.textContent = e.label;
-        eventoSelect.appendChild(opt);
-      });
-      if (data?.evento) eventoSelect.value = data.evento;
-      else eventoSelect.value = '';
-      eventoSelect.addEventListener('change', () => {
-        updateCardTitle(id, card);
-        updateCardSummary(id);
-        renderPreview();
-      });
-      
-      eventoGroup.appendChild(eventoLabel);
-      eventoGroup.appendChild(eventoSelect);
-      body.appendChild(eventoGroup);
+      // Parse contatos (NO, NC, AND, OR)
+      const contacts = parseContacts(contactsStr);
+      if (!contacts || contacts.length === 0) {
+        return { error: 'Nenhum contato encontrado' };
+      }
 
-      // Condições
-      const condLabel = document.createElement('span');
-      condLabel.className = 'section-label';
-      condLabel.textContent = '📋 Condições (opcional)';
-      body.appendChild(condLabel);
-
-      const conditionsRow = document.createElement('div');
-      
-      const portaGroup = document.createElement('div');
-      portaGroup.className = 'form-group';
-      const portaLabel = document.createElement('label');
-      portaLabel.className = 'form-label';
-      portaLabel.textContent = 'Porta:';
-      const portaSelect = document.createElement('select');
-      portaSelect.id = `${id}_cond_porta`;
-      ['any', 'open', 'closed'].forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'open' ? 'Aberta' : 'Fechada');
-        portaSelect.appendChild(opt);
-      });
-      if (data?.conditions?.porta) portaSelect.value = data.conditions.porta;
-      portaSelect.addEventListener('change', renderPreview);
-      portaGroup.appendChild(portaLabel);
-      portaGroup.appendChild(portaSelect);
-      conditionsRow.appendChild(portaGroup);
-
-      const ignicaoGroup = document.createElement('div');
-      ignicaoGroup.className = 'form-group';
-      const ignicaoLabel = document.createElement('label');
-      ignicaoLabel.className = 'form-label';
-      ignicaoLabel.textContent = 'Ignição:';
-      const ignicaoSelect = document.createElement('select');
-      ignicaoSelect.id = `${id}_cond_ignicao`;
-      ['any', 'on', 'off'].forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v === 'any' ? 'Qualquer estado' : (v === 'on' ? 'Ligada' : 'Desligada');
-        ignicaoSelect.appendChild(opt);
-      });
-      if (data?.conditions?.ignicao) ignicaoSelect.value = data.conditions.ignicao;
-      ignicaoSelect.addEventListener('change', renderPreview);
-      ignicaoGroup.appendChild(ignicaoLabel);
-      ignicaoGroup.appendChild(ignicaoSelect);
-      conditionsRow.appendChild(ignicaoGroup);
-      
-      body.appendChild(conditionsRow);
-
-      // Saídas
-      const outputLabel = document.createElement('span');
-      outputLabel.className = 'section-label';
-      outputLabel.style.marginTop = '1.5rem';
-      outputLabel.textContent = '💡 Controlar as luzes';
-      body.appendChild(outputLabel);
-
-      const outputsGrid = document.createElement('div');
-      outputsGrid.className = 'outputs-grid';
-
-      SAIDAS.forEach(saida => {
-        const item = document.createElement('div');
-        item.className = 'output-item';
-
-        const outputData = data?.outputs?.[saida.key] || {};
-        const ligarData = outputData.ligar || {};
-        const desligarData = outputData.desligar || {};
-        const ligarAfterVal = Math.max(0, Number(ligarData.after ?? outputData.after ?? 0));
-        const desligarAfterVal = Math.max(0, Number(desligarData.after ?? 0));
-        const enabledVal = outputData.enabled ?? false;
-
-        const header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
-        header.style.gap = '0.5rem';
-        header.style.marginBottom = '0.75rem';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `${id}_${saida.key}_enabled`;
-        checkbox.checked = enabledVal;
-        checkbox.style.width = '18px';
-        checkbox.style.height = '18px';
-        checkbox.style.cursor = 'pointer';
-        checkbox.addEventListener('change', () => {
-          updateOutputHint(id, saida.key);
-          renderPreview();
-        });
-
-        const name = document.createElement('div');
-        name.className = 'output-name';
-        name.style.margin = '0';
-        name.textContent = saida.label;
-
-        header.appendChild(checkbox);
-        header.appendChild(name);
-        item.appendChild(header);
-
-        // BLOCO LIGAR
-        const ligarTitle = document.createElement('div');
-        ligarTitle.className = 'output-subtitle';
-        ligarTitle.textContent = 'Ligar';
-        item.appendChild(ligarTitle);
-
-        const delaysOn = document.createElement('div');
-        delaysOn.className = 'output-delays';
-        delaysOn.style.gridTemplateColumns = '1fr';
-
-        const delayOnGroup = document.createElement('div');
-        delayOnGroup.className = 'form-group';
-        delayOnGroup.style.gridTemplateColumns = '1fr';
-        delayOnGroup.style.marginBottom = '0';
-        
-        const delayOnLabel = document.createElement('label');
-        delayOnLabel.className = 'form-label';
-        delayOnLabel.style.minWidth = 'auto';
-        delayOnLabel.textContent = 'Após (s):';
-        
-        const delayOnInput = document.createElement('input');
-        delayOnInput.type = 'number';
-        delayOnInput.id = `${id}_${saida.key}_ligar_after`;
-        delayOnInput.min = 0;
-        delayOnInput.max = 300;
-        delayOnInput.step = 1;
-        delayOnInput.value = ligarAfterVal;
-        delayOnInput.addEventListener('input', () => {
-          updateOutputHint(id, saida.key);
-          renderPreview();
-        });
-        
-        delayOnGroup.appendChild(delayOnLabel);
-        delayOnGroup.appendChild(delayOnInput);
-        delaysOn.appendChild(delayOnGroup);
-
-        item.appendChild(delaysOn);
-
-        // BLOCO DESLIGAR
-        const desligarTitle = document.createElement('div');
-        desligarTitle.className = 'output-subtitle';
-        desligarTitle.textContent = 'Desligar';
-        desligarTitle.style.marginTop = '0.75rem';
-        item.appendChild(desligarTitle);
-
-        const delaysOff = document.createElement('div');
-        delaysOff.className = 'output-delays';
-        delaysOff.style.gridTemplateColumns = '1fr';
-
-        const delayOffGroup = document.createElement('div');
-        delayOffGroup.className = 'form-group';
-        delayOffGroup.style.gridTemplateColumns = '1fr';
-        delayOffGroup.style.marginBottom = '0';
-        
-        const delayOffLabel = document.createElement('label');
-        delayOffLabel.className = 'form-label';
-        delayOffLabel.style.minWidth = 'auto';
-        delayOffLabel.textContent = 'Após (s):';
-        
-        const delayOffInput = document.createElement('input');
-        delayOffInput.type = 'number';
-        delayOffInput.id = `${id}_${saida.key}_desligar_after`;
-        delayOffInput.min = 0;
-        delayOffInput.max = 300;
-        delayOffInput.step = 1;
-        delayOffInput.value = desligarAfterVal;
-        delayOffInput.addEventListener('input', () => {
-          updateOutputHint(id, saida.key);
-          renderPreview();
-        });
-        
-        delayOffGroup.appendChild(delayOffLabel);
-        delayOffGroup.appendChild(delayOffInput);
-        delaysOff.appendChild(delayOffGroup);
-
-        item.appendChild(delaysOff);
-
-        const hint = document.createElement('div');
-        hint.className = 'help-text output-hint';
-        hint.id = `${id}_${saida.key}_hint`;
-        item.appendChild(hint);
-        updateOutputHint(id, saida.key);
-        outputsGrid.appendChild(item);
-      });
-
-      body.appendChild(outputsGrid);
-
-      const summary = document.createElement('div');
-      summary.className = 'help-text';
-      summary.id = `${id}_summary`;
-      summary.style.marginTop = '0.75rem';
-      body.appendChild(summary);
-
-      updateCardSummary(id);
-
-      // Botão deletar
-      const actionsRow = document.createElement('div');
-      actionsRow.className = 'actions-row';
-      
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn btn-small danger';
-      deleteBtn.textContent = '🗑️ Deletar';
-      deleteBtn.addEventListener('click', () => {
-        card.remove();
-        updateEmptyState();
-        renderPreview();
-      });
-      
-      actionsRow.appendChild(deleteBtn);
-      body.appendChild(actionsRow);
-
-      card.appendChild(header);
-      card.appendChild(body);
-
-      return card;
+      return {
+        original: text,
+        contacts,
+        output,
+        command: outputCmd,
+        ligar,
+        desligar
+      };
     }
 
-    function updateCardTitle(id, card) {
-      const eventoSelect = document.getElementById(`${id}_evento`);
-      const evento = eventoSelect?.value;
-      const eventoLabel = EVENTOS.find(e => e.key === evento)?.label || 'Nova lógica';
+    function parseContacts(str) {
+      const contacts = [];
       
-      const title = card.querySelector('.card-title');
-      title.innerHTML = `${eventoLabel} <span class="caret">▼</span>`;
+      // Procurar padroes: -|entity|- (NO) ou --|entity|-- (NC)
+      // Suportar | + | (OR) e separacao por espaco (AND)
+      
+      // Expandir a string substituindo separadores
+      str = str.replace(/\s*\+\s*/g, '|OR|').replace(/\s+/g, '|AND|');
+      
+      // Extrair contatos
+      const regex = /-{1,2}\|([a-z\-]+)\|(-{1,2})?/g;
+      let match;
+      let prevOperator = null;
+
+      while ((match = regex.exec(str)) !== null) {
+        const entity = match[1];
+        const isNC = match[0].startsWith('--'); // NC se comeca com --
+
+        if (!ALL_ENTITIES.includes(entity)) {
+          return null;
+        }
+
+        contacts.push({
+          entity,
+          negated: isNC,
+          state: isNC ? 'desligado' : 'ligado',
+          operator: prevOperator
+        });
+
+        // Procurar proximo operador
+        const rest = str.substring(match.index + match[0].length);
+        if (rest.includes('|OR|')) {
+          prevOperator = 'ou';
+          str = str.substring(0, match.index + match[0].length) + rest.replace('|OR|', '');
+        } else if (rest.includes('|AND|')) {
+          prevOperator = 'e';
+          str = str.substring(0, match.index + match[0].length) + rest.replace('|AND|', '');
+        }
+      }
+
+      return contacts;
     }
 
-    function updateEmptyState() {
-      const container = document.getElementById('logics-container');
-      const emptyState = document.getElementById('empty-state');
-      const hasLogics = container.children.length > 0;
-      emptyState.style.display = hasLogics ? 'none' : 'block';
-    }
-
-    function updateOutputHint(id, key) {
-      const enabled = document.getElementById(`${id}_${key}_enabled`)?.checked ?? false;
-      const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_ligar_after`)?.value ?? 0));
-      const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${key}_desligar_after`)?.value ?? 0));
-      const hintEl = document.getElementById(`${id}_${key}_hint`);
-      if (!hintEl) return;
-
-      if (!enabled) {
-        hintEl.textContent = '⊘ Controle desativado (mantém estado atual)';
-        updateCardSummary(id);
+    function addRung() {
+      const text = document.getElementById('ladderInput').value.trim();
+      if (!text) {
+        showToast('Digite um degrau');
         return;
       }
 
-      const partes = [];
-      if (ligarAfter === 0) partes.push('ligar desativado');
-      else partes.push(`liga em ${ligarAfter}s`);
+      // Parsear cada linha
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      for (const line of lines) {
+        const result = parseLadder(line);
+        if (result.error) {
+          showToast('Erro: ' + result.error + ' em: ' + line);
+          return;
+        }
+        rungs.push(result);
+      }
 
-      if (desligarAfter === 0) partes.push('desligar desativado');
-      else partes.push(`desliga em ${desligarAfter}s`);
-
-      hintEl.textContent = partes.join(' · ');
-      updateCardSummary(id);
+      renderRungs();
+      renderPreview();
+      document.getElementById('ladderInput').value = '';
+      showToast('Degrau(s) adicionado(s)');
     }
 
-    function updateCardSummary(id) {
-      const evento = document.getElementById(`${id}_evento`)?.value;
-      const eventoLabel = EVENTOS.find(e => e.key === evento)?.label || 'Evento';
-      const summaryEl = document.getElementById(`${id}_summary`);
-      if (!summaryEl) return;
+    function renderRungs() {
+      const container = document.getElementById('rungsList');
+      if (rungs.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nenhum degrau criado</div>';
+        return;
+      }
 
-      const parts = [];
-      SAIDAS.forEach(s => {
-        const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
-        if (!enabled) return;
-        
-        const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
-        const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
-        if (ligarAfter === 0 && desligarAfter === 0) return;
+      container.innerHTML = '';
+      rungs.forEach((rung, idx) => {
+        const item = document.createElement('div');
+        item.className = 'rung-item';
 
-        let desc = `${s.label}:`;
-        if (ligarAfter === 0) desc += ' ligar desativado';
-        else desc += ` liga em ${ligarAfter}s`;
+        const text = document.createElement('div');
+        text.className = 'rung-text';
+        text.textContent = rung.original;
 
-        if (desligarAfter === 0) desc += ' | desligar desativado';
-        else desc += ` | desliga em ${desligarAfter}s`;
-        parts.push(desc);
-      });
+        const status = document.createElement('div');
+        status.className = 'rung-status success';
+        const contactInfo = rung.contacts.map(c => c.entity).join(', ');
+        status.textContent = '✓ ' + contactInfo + ' -> ' + rung.command + ' ' + rung.output;
 
-      summaryEl.textContent = parts.length
-        ? `${eventoLabel}: ${parts.join(' | ')}`
-        : `${eventoLabel}: nenhuma saída agendada`;
-    }
+        const btnRow = document.createElement('div');
+        btnRow.style.display = 'flex';
+        btnRow.style.gap = '0.5rem';
+        btnRow.style.marginTop = '0.5rem';
 
-    function readAllConfig() {
-      const logicas = [];
-      const cards = document.querySelectorAll('[id^="card_logic_"]');
-      
-      cards.forEach(card => {
-        const id = card.id.replace('card_', '');
-        const evento = document.getElementById(`${id}_evento`)?.value;
-        if (!evento) return;
-        
-        const cond_porta = document.getElementById(`${id}_cond_porta`)?.value ?? 'any';
-        const cond_ignicao = document.getElementById(`${id}_cond_ignicao`)?.value ?? 'any';
-        
-        const outputs = {};
-        SAIDAS.forEach(s => {
-          const enabled = document.getElementById(`${id}_${s.key}_enabled`)?.checked ?? false;
-          const ligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_ligar_after`)?.value ?? 0));
-          const desligarAfter = Math.max(0, Number(document.getElementById(`${id}_${s.key}_desligar_after`)?.value ?? 0));
-          outputs[s.key] = {
-            enabled: enabled,
-            ligar: { after: ligarAfter },
-            desligar: { after: desligarAfter }
-          };
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-small danger';
+        deleteBtn.style.padding = '0.4rem 0.8rem';
+        deleteBtn.style.fontSize = '0.8rem';
+        deleteBtn.textContent = 'Deletar';
+        deleteBtn.addEventListener('click', () => {
+          rungs.splice(idx, 1);
+          renderRungs();
+          renderPreview();
         });
-        
-        logicas.push({
-          evento,
-          conditions: { porta: cond_porta, ignicao: cond_ignicao },
-          outputs
-        });
+
+        btnRow.appendChild(deleteBtn);
+
+        item.appendChild(text);
+        item.appendChild(status);
+        item.appendChild(btnRow);
+        container.appendChild(item);
       });
-      
-      return { logicas };
     }
 
     function renderPreview() {
-      const cfg = readAllConfig();
-      document.getElementById('preview').textContent = JSON.stringify(cfg, null, 2);
-    }
+      // Converter Ladder para JSON interno
+      const logicas = rungs.map(rung => {
+        // Criar trigger a partir do primeiro contato
+        const trigger = {
+          entity: rung.contacts[0].entity,
+          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
+        };
 
-    function logConfigSummary(cfg) {
-      console.log('\n═══════════════════════════════════════════════════');
-      console.log('📤 CONFIGURAÇÃO PARA ENVIO AO ESP32');
-      console.log('═══════════════════════════════════════════════════\n');
-      
-      if (!cfg.logicas || cfg.logicas.length === 0) {
-        console.log('⚠️  Nenhuma lógica configurada');
-        return;
-      }
+        // Condicoes = resto dos contatos
+        const conditions = rung.contacts.slice(1).map(c => ({
+          entity: c.entity,
+          state: c.state,
+          negated: c.negated,
+          operator: c.operator
+        }));
 
-      cfg.logicas.forEach((logic, idx) => {
-        const eventoLabel = EVENTOS.find(e => e.key === logic.evento)?.label || logic.evento;
-        console.log(`\n🔹 Lógica ${idx + 1}: ${eventoLabel}`);
-        
-        // Condições
-        const conds = [];
-        if (logic.conditions.porta !== 'any') {
-          const portaLabel = logic.conditions.porta === 'open' ? 'Porta aberta' : 'Porta fechada';
-          conds.push(portaLabel);
-        }
-        if (logic.conditions.ignicao !== 'any') {
-          const ignLabel = logic.conditions.ignicao === 'on' ? 'Ignição ligada' : 'Ignição desligada';
-          conds.push(ignLabel);
-        }
-        if (conds.length > 0) {
-          console.log(`   📋 Condições: ${conds.join(' + ')}`);
-        } else {
-          console.log('   📋 Condições: Nenhuma (sempre executar)');
-        }
-
-        // Saídas
-        console.log('   💡 Ações:');
-        let hasActions = false;
-        SAIDAS.forEach(s => {
-          const out = logic.outputs[s.key];
-          if (!out.enabled) return;
-          
-          const ligar = out.ligar.after;
-          const desligar = out.desligar.after;
-          
-          if (ligar === 0 && desligar === 0) return;
-          hasActions = true;
-          
-          let actionStr = `      • ${s.label}: `;
-          if (ligar > 0) actionStr += `liga em ${ligar}s`;
-          else if (ligar === 0) actionStr += 'ligar desativado';
-          
-          if (desligar > 0) actionStr += ` | desliga em ${desligar}s`;
-          else if (desligar === 0) actionStr += ' | desligar desativado';
-          
-          console.log(actionStr);
-        });
-        
-        if (!hasActions) {
-          console.log('      (Nenhuma saída configurada)');
-        }
+        return {
+          original: rung.original,
+          trigger,
+          conditions,
+          actions: [{
+            output: rung.output,
+            command: rung.command,
+            ligar: rung.ligar,
+            desligar: rung.desligar
+          }]
+        };
       });
-      
-      console.log('\n═══════════════════════════════════════════════════');
-      console.log(`✅ Total: ${cfg.logicas.length} lógica(s) configurada(s)`);
-      console.log('═══════════════════════════════════════════════════\n');
-    }
 
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = message;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      const config = { logicas };
+      document.getElementById('preview').textContent = JSON.stringify(config, null, 2);
     }
 
     function saveConfig() {
-      const cfg = readAllConfig();
-      logConfigSummary(cfg);
-      
-      showToast('⏳ Salvando configuração...');
-      
+      if (rungs.length === 0) {
+        showToast('Nenhum degrau para salvar');
+        return;
+      }
+
+      const logicas = rungs.map(rung => {
+        const trigger = {
+          entity: rung.contacts[0].entity,
+          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
+        };
+        const conditions = rung.contacts.slice(1).map(c => ({
+          entity: c.entity,
+          state: c.state,
+          negated: c.negated,
+          operator: c.operator
+        }));
+
+        return {
+          original: rung.original,
+          trigger,
+          conditions,
+          actions: [{
+            output: rung.output,
+            command: rung.command,
+            ligar: rung.ligar,
+            desligar: rung.desligar
+          }]
+        };
+      });
+
+      const config = { logicas };
+
+      showToast('Salvando...');
       fetch('/api/config', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(cfg)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          showToast('✅ Configuração salva no ESP32!');
+          showToast('Salvo!');
         } else {
-          showToast('❌ Erro: ' + (data.error || 'Falha ao salvar'));
+          showToast('Erro ao salvar');
         }
       })
-      .catch(err => {
-        showToast('❌ Erro de comunicação: ' + err.message);
-        console.error('Erro ao salvar:', err);
-      });
+      .catch(err => showToast('Erro de rede'));
     }
 
-    function resetConfig() {
-      if (!confirm('Deseja remover todas as lógicas?')) return;
-      document.getElementById('logics-container').innerHTML = '';
-      logicCounter = 0;
-      updateEmptyState();
-      renderPreview();
-    }
-
-    function downloadFile(filename, content) {
-      const blob = new Blob([content], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
     }
 
     function exportConfig() {
-      fetch('/api/config')
-        .then(res => res.json())
-        .then(cfg => {
-          downloadFile('bcm_config.json', JSON.stringify(cfg, null, 2));
-          showToast('⬇️ Configuração exportada');
-        })
-        .catch(err => {
-          console.error('Erro ao exportar:', err);
-          showToast('❌ Erro ao exportar');
-        });
-    }
-
-    function importConfigFromText(text) {
-      try {
-        const cfg = JSON.parse(text);
-        if (!cfg.logicas) throw new Error('JSON inválido');
-        fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cfg)
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            showToast('✅ Config importada');
-            // Recarregar na UI
-            document.getElementById('logics-container').innerHTML = '';
-            logicCounter = 0;
-            loadConfig();
-          } else {
-            showToast('❌ Erro ao importar');
-          }
-        })
-        .catch(err => {
-          console.error('Erro ao enviar config:', err);
-          showToast('❌ Erro ao enviar config');
-        });
-      } catch (e) {
-        showToast('❌ JSON inválido');
-      }
+      const logicas = rungs.map(rung => {
+        const trigger = {
+          entity: rung.contacts[0].entity,
+          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
+        };
+        const conditions = rung.contacts.slice(1);
+        return { original: rung.original, trigger, conditions, actions: [{ output: rung.output, command: rung.command, ligar: rung.ligar, desligar: rung.desligar }] };
+      });
+      const config = { logicas };
+      
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bcm_ladder.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Exportado');
     }
 
     function loadConfig() {
-      // limpar atual
-      document.getElementById('logics-container').innerHTML = '';
-      logicCounter = 0;
-      
       fetch('/api/config')
         .then(res => res.json())
-        .then(cfg => {
-          if (!cfg || !cfg.logicas || cfg.logicas.length === 0) {
-            updateEmptyState();
+        .then(data => {
+          if (data.logicas && Array.isArray(data.logicas)) {
+            rungs = data.logicas.map(r => ({
+              original: r.original || '',
+              contacts: r.contacts || [],
+              output: r.actions?.[0]?.output || '',
+              command: r.actions?.[0]?.command || 'ligar',
+              ligar: r.actions?.[0]?.ligar,
+              desligar: r.actions?.[0]?.desligar
+            }));
+            renderRungs();
             renderPreview();
-            return;
           }
-          
-          cfg.logicas.forEach(logic => {
-            const card = createLogicCard(null, {
-              evento: logic.evento,
-              conditions: logic.conditions,
-              outputs: logic.outputs
-            });
-            document.getElementById('logics-container').appendChild(card);
-            // Atualizar títulos após adicionar ao DOM
-            updateCardTitle(card.id.replace('card_', ''), card);
-            // Atualizar hints das saídas
-            SAIDAS.forEach(s => {
-              updateOutputHint(card.id.replace('card_', ''), s.key);
-            });
-          });
-          
-          updateEmptyState();
-          renderPreview();
-          console.log('Configuração carregada do ESP32');
         })
-        .catch(err => {
-          console.error('Erro ao carregar config:', err);
-          updateEmptyState();
-          renderPreview();
-        });
+        .catch(err => console.error(err));
     }
 
-    function addLogic() {
-      const card = createLogicCard();
-      document.getElementById('logics-container').appendChild(card);
-      updateEmptyState();
-      renderPreview();
-      card.classList.toggle('collapsed');
-      card.classList.toggle('open');
-    }
-
-    document.getElementById('addLogic').addEventListener('click', addLogic);
+    // Event listeners
+    document.getElementById('addRung').addEventListener('click', addRung);
+    document.getElementById('ladderInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) addRung();
+    });
+    document.getElementById('clearInput').addEventListener('click', () => {
+      document.getElementById('ladderInput').value = '';
+    });
     document.getElementById('saveAll').addEventListener('click', saveConfig);
-    document.getElementById('resetAll').addEventListener('click', resetConfig);
     document.getElementById('exportConfig').addEventListener('click', exportConfig);
     document.getElementById('importConfig').addEventListener('click', () => document.getElementById('importFile').click());
     document.getElementById('importFile').addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (!file) return;
-      file.text().then(importConfigFromText);
+      if (file) {
+        file.text().then(text => {
+          try {
+            const config = JSON.parse(text);
+            if (config.logicas) {
+              rungs = config.logicas.map(r => ({
+                original: r.original || '',
+                contacts: r.contacts || [],
+                output: r.actions?.[0]?.output || '',
+                command: r.actions?.[0]?.command || 'ligar',
+                ligar: r.actions?.[0]?.ligar,
+                desligar: r.actions?.[0]?.desligar
+              }));
+              renderRungs();
+              renderPreview();
+              saveConfig();
+              showToast('Importado');
+            }
+          } catch (err) {
+            showToast('Erro ao importar');
+          }
+        });
+      }
       e.target.value = '';
     });
 
-    // Toggle preview card
-    document.getElementById('preview-header').addEventListener('click', () => {
-      document.getElementById('preview-card').classList.toggle('collapsed');
-      document.getElementById('preview-card').classList.toggle('open');
+    // Toggle cards
+    document.querySelectorAll('.card-header').forEach(header => {
+      header.addEventListener('click', (e) => {
+        const card = e.target.closest('.card');
+        card.classList.toggle('open');
+        card.classList.toggle('collapsed');
+      });
     });
 
-    // Toggle status card
-    document.getElementById('status-header').addEventListener('click', () => {
-      document.getElementById('status-card').classList.toggle('collapsed');
-      document.getElementById('status-card').classList.toggle('open');
-    });
-
-    // Toggle logs card
-    document.getElementById('logs-header').addEventListener('click', () => {
-      document.getElementById('logs-card').classList.toggle('collapsed');
-      document.getElementById('logs-card').classList.toggle('open');
-    });
-
-    // Atualizar status de entradas e saídas
+    // Status monitor
     function updateStatus() {
       fetch('/api/status')
         .then(res => res.json())
         .then(data => {
-          // Atualizar entradas
           const inputsGrid = document.getElementById('inputs-status');
-          const inputs = [
-            { key: 'ignicao', label: 'Ignição', onText: 'ON', offText: 'OFF' },
-            { key: 'porta', label: 'Porta', onText: 'Aberta', offText: 'Fechada' },
-            { key: 'trava', label: 'Trava', onText: 'ON', offText: 'OFF' },
-            { key: 'destrava', label: 'Destrava', onText: 'ON', offText: 'OFF' }
-          ];
+          const outputsGrid = document.getElementById('outputs-status');
           
           inputsGrid.innerHTML = '';
-          inputs.forEach(input => {
-            const isOn = data.inputs[input.key];
+          const inputsMeta = [
+            { key: 'ignicao', label: 'Ignicao' },
+            { key: 'porta', label: 'Porta' },
+            { key: 'trava', label: 'Trava' },
+            { key: 'destrava', label: 'Destrava' }
+          ];
+          
+          inputsMeta.forEach(inp => {
+            const isOn = data.inputs[inp.key];
             const item = document.createElement('div');
             item.className = 'status-item';
-            item.innerHTML = `
-              <span class="status-label">${input.label}</span>
-              <div class="status-value">
-                <span class="status-indicator ${isOn ? 'status-on' : 'status-off'}"></span>
-                <span>${isOn ? input.onText : input.offText}</span>
-              </div>
-            `;
+            item.innerHTML = '<span class="status-label">' + inp.label + '</span><span class="status-indicator ' + (isOn ? 'status-on' : 'status-off') + '"></span>';
             inputsGrid.appendChild(item);
           });
 
-          // Atualizar saídas
-          const outputsGrid = document.getElementById('outputs-status');
-          const outputs = [
+          outputsGrid.innerHTML = '';
+          const outputsMeta = [
             { key: 'farol', label: 'Farol' },
             { key: 'drl', label: 'DRL' },
-            { key: 'interna', label: 'Luz Interna' },
-            { key: 'pes', label: 'Luz dos Pés' }
+            { key: 'luz-interna', label: 'Luz Int' },
+            { key: 'luz-assoalho', label: 'Luz Pes' }
           ];
           
-          outputsGrid.innerHTML = '';
-          outputs.forEach(output => {
-            const isOn = data.outputs[output.key] === 1;
+          outputsMeta.forEach(out => {
+            const isOn = data.outputs[out.key] === 1;
             const item = document.createElement('div');
             item.className = 'status-item';
-            item.innerHTML = `
-              <div class="status-item-header">
-                <span class="status-label">${output.label}</span>
-                <div class="status-value">
-                  <span class="status-indicator ${isOn ? 'status-on' : 'status-off'}"></span>
-                  <span>${isOn ? 'ON' : 'OFF'}</span>
-                </div>
-              </div>
-              <button class="control-btn" data-output="${output.key}">
-                ${isOn ? '⚪ Desligar' : '🟢 Ligar'}
-              </button>
-            `;
-            
-            // Adicionar evento de clique no botão
-            const btn = item.querySelector('.control-btn');
-            btn.addEventListener('click', () => toggleOutput(output.key));
-            
+            item.innerHTML = '<span class="status-label">' + out.label + '</span><button class="control-btn" style="flex: none; width: 80px;">Ligar</button>';
+            item.querySelector('.control-btn').textContent = isOn ? 'Desligar' : 'Ligar';
+            item.querySelector('.control-btn').addEventListener('click', () => toggleOutput(out.key));
             outputsGrid.appendChild(item);
           });
-        })
-        .catch(err => console.error('Erro ao atualizar status:', err));
+        });
     }
-    
-    // Função para alternar o estado de uma saída
+
     function toggleOutput(outputKey) {
       fetch('/api/output/toggle', {
         method: 'POST',
@@ -1262,134 +765,30 @@
       })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          showToast('✅ Saída alternada');
-          updateStatus(); // Atualizar imediatamente
-        } else {
-          showToast('❌ Erro: ' + (data.error || 'Desconhecido'));
-        }
-      })
-      .catch(err => {
-        console.error('Erro ao alternar saída:', err);
-        showToast('❌ Erro ao alternar saída');
+        if (data.success) updateStatus();
       });
     }
 
-    // Atualizar status a cada 1 segundo
     setInterval(updateStatus, 1000);
     updateStatus();
 
-    // Atualizar logs do monitor serial
+    // Logs
     function updateLogs() {
       fetch('/api/logs')
         .then(res => res.json())
         .then(data => {
           const logsEl = document.getElementById('logs-view');
           const lines = data.logs || [];
-          if (!lines.length) {
-            logsEl.textContent = 'Nenhum log disponível ainda.';
-            return;
-          }
-          logsEl.textContent = lines.join('\n');
+          logsEl.textContent = lines.length ? lines.join('\n') : 'Sem logs';
           logsEl.scrollTop = logsEl.scrollHeight;
-        })
-        .catch(err => {
-          console.error('Erro ao obter logs:', err);
-          document.getElementById('logs-view').textContent = 'Erro ao carregar logs';
         });
     }
 
-    setInterval(updateLogs, 1500);
+    setInterval(updateLogs, 2000);
     updateLogs();
 
-    // Carregar configurações de WiFi e BCM Name
-    function loadSettings() {
-      fetch('/api/settings')
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById('bcmNameInput').value = data.bcmName || 'BCM_ESP32';
-          document.getElementById('wifiSSIDInput').value = data.wifiSSID || 'BCM_ESP32';
-          document.getElementById('bcm-title').textContent = '⚡ ' + (data.bcmName || 'BCM_ESP32');
-          showToast('⚙️ Configurações carregadas');
-        })
-        .catch(err => {
-          console.error('Erro ao carregar configurações:', err);
-          showToast('❌ Erro ao carregar configurações');
-        });
-    }
-
-    // Salvar configurações de WiFi e BCM Name
-    function saveSettings() {
-      const bcmName = document.getElementById('bcmNameInput').value.trim();
-      const wifiSSID = document.getElementById('wifiSSIDInput').value.trim();
-
-      if (!bcmName || !wifiSSID) {
-        showToast('⚠️ Preencha todos os campos');
-        return;
-      }
-
-      const settings = { bcmName, wifiSSID };
-
-      fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById('bcm-title').textContent = '⚡ ' + bcmName;
-          showToast('✅ Configurações salvas!');
-        } else {
-          showToast('❌ ' + (data.error || 'Erro ao salvar'));
-        }
-      })
-      .catch(err => {
-        console.error('Erro ao salvar configurações:', err);
-        showToast('❌ Erro ao salvar configurações');
-      });
-    }
-
-    // Listeners para settings
-    document.getElementById('saveSettings').addEventListener('click', saveSettings);
-    document.getElementById('loadSettings').addEventListener('click', loadSettings);
-
-    // Reiniciar ESP32
-    document.getElementById('restartESP').addEventListener('click', () => {
-      if (!confirm('⚠️ Tem certeza que deseja reiniciar o ESP32?')) return;
-      
-      showToast('🔄 Reiniciando ESP32...');
-      
-      fetch('/api/restart', {
-        method: 'POST'
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          showToast('✅ ESP32 reiniciando... Aguarde 5 segundos.');
-          setTimeout(() => {
-            window.location.reload();
-          }, 5000);
-        }
-      })
-      .catch(err => {
-        console.error('Erro ao reiniciar:', err);
-        showToast('⚠️ ESP32 reiniciando...');
-        setTimeout(() => {
-          window.location.reload();
-        }, 5000);
-      });
-    });
-
-    // Toggle settings card
-    document.getElementById('settings-header').addEventListener('click', () => {
-      document.getElementById('settings-card').classList.toggle('collapsed');
-      document.getElementById('settings-card').classList.toggle('open');
-    });
-
-    // Carregar config ao iniciar
+    // Init
     loadConfig();
-    loadSettings();
   </script>
 </body>
 </html>
