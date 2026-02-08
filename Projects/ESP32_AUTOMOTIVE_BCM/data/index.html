@@ -377,7 +377,7 @@
       // Parse saida
       const outputCmd = outputStr.startsWith('(') ? 'ligar' : 'desligar';
       const outputContent = outputStr.replace(/[()\/]/g, '').trim();
-      const outputParts = outputContent.match(/([a-z\-]+)\s*(?:\(\+?(\d+)s(?::(\d+)s)?\))?/);
+      const outputParts = outputContent.match(/([a-z\-]+)(?:\s*\+?(\d+)s(?::(\d+)s)?)?/);
       
       if (!outputParts) {
         return { error: 'Saida invalida' };
