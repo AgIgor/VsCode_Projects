@@ -37,6 +37,9 @@ struct IOState {
   bool drl;
 } ioState;
 
+IOState lastState;
+bool lastStateValid = false;
+
 // Estrutura de regra
 struct Condition {
   String input;
@@ -79,6 +82,9 @@ void sendIOState();
 void applyOutput(String output, bool state);
 void evaluateRules();
 Rule parseRule(String line);
+bool hasIOStateChanged();
+void updateLastState();
+void sendIOStateIfChanged();
 
 // Função para ler entradas
 void readInputs() {
@@ -119,10 +125,11 @@ void applyOutput(String output, bool state) {
     ioState.drl = state;
   }
   
-  Serial.printf("Saída %s: %s\n", output.c_str(), state ? "HIGH" : "LOW");
+  Serial.printf("Saída %s: %s\n", output.c_str(), state ? "ON" : "OFF");
   
   // Notifica clientes WebSocket
   sendIOState();
+  updateLastState();
 }
 
 // Avalia uma condição
@@ -320,20 +327,42 @@ Rule parseRule(String line) {
     }
     
     stateStr.trim();
-    cond.state = (stateStr == "low");
-    
-    rule.conditions.push_back(cond);
+    bool validState = false;
+    if (stateStr == "on" || stateStr == "liga") {
+      cond.state = true;
+      validState = true;
+    } else if (stateStr == "off" || stateStr == "desliga") {
+      cond.state = false;
+      validState = true;
+    } else if (cond.input == "porta") {
+      if (stateStr == "aberta") {
+        cond.state = true;
+        validState = true;
+      } else if (stateStr == "fechada") {
+        cond.state = false;
+        validState = true;
+      }
+    }
+
+    if (validState) {
+      rule.conditions.push_back(cond);
+    }
   }
   
   auto parseActionSegment = [](String text, Action& action) -> bool {
     text.trim();
     int eqPos = text.indexOf("==");
+    int eqLen = 2;
+    if (eqPos <= 0) {
+      eqPos = text.indexOf("=");
+      eqLen = 1;
+    }
     if (eqPos <= 0) return false;
     
     action.output = text.substring(0, eqPos);
     action.output.trim();
     
-    String actionState = text.substring(eqPos + 2);
+    String actionState = text.substring(eqPos + eqLen);
     actionState.trim();
     
     int emPos = actionState.indexOf(" em ");
@@ -357,8 +386,15 @@ Rule parseRule(String line) {
     }
     
     actionState.trim();
-    action.state = (actionState == "high");
-    return true;
+    if (actionState == "on" || actionState == "liga") {
+      action.state = true;
+      return true;
+    }
+    if (actionState == "off" || actionState == "desliga") {
+      action.state = false;
+      return true;
+    }
+    return false;
   };
   
   auto parseActionList = [&](String text, std::vector<ActionEntry>& target) {
@@ -425,6 +461,30 @@ void sendIOState() {
   ws.textAll(json);
 }
 
+bool hasIOStateChanged() {
+  if (!lastStateValid) return true;
+  return ioState.trava != lastState.trava ||
+         ioState.destrava != lastState.destrava ||
+         ioState.porta != lastState.porta ||
+         ioState.ignicao != lastState.ignicao ||
+         ioState.luzInterna != lastState.luzInterna ||
+         ioState.luzAssoalho != lastState.luzAssoalho ||
+         ioState.farol != lastState.farol ||
+         ioState.drl != lastState.drl;
+}
+
+void updateLastState() {
+  lastState = ioState;
+  lastStateValid = true;
+}
+
+void sendIOStateIfChanged() {
+  if (hasIOStateChanged()) {
+    sendIOState();
+    updateLastState();
+  }
+}
+
 // Callbacks WebSocket
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                AwsEventType type, void *arg, uint8_t *data, size_t len) {
@@ -485,7 +545,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
           String output = doc["output"].as<String>();
           bool state = doc["state"].as<bool>();
           applyOutput(output, state);
-          Serial.printf("Controle manual: %s = %s\n", output.c_str(), state ? "HIGH" : "LOW");
+          Serial.printf("Controle manual: %s = %s\n", output.c_str(), state ? "ON" : "OFF");
         }
       }
     }
@@ -523,6 +583,7 @@ void setup() {
   
   // Inicia WiFi em modo AP
   WiFi.mode(WIFI_AP);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   WiFi.softAP(ssid, password);
   Serial.println("WiFi AP iniciado!");
   Serial.print("AP SSID: ");
@@ -571,6 +632,7 @@ void loop() {
     
     // Lê entradas
     readInputs();
+    sendIOStateIfChanged();
     
     // Avalia regras
     evaluateRules();

@@ -369,6 +369,67 @@
       border-radius: 4px;
       font-size: 11px;
     }
+
+    .block-builder {
+      background: #f8fafc;
+      border: 2px dashed #cbd5f5;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .block-palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .block-item {
+      padding: 6px 10px;
+      background: #edf2f7;
+      border: 1px solid #cbd5e0;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .block-item:active {
+      cursor: grabbing;
+    }
+
+    .drop-zone {
+      min-height: 48px;
+      border: 2px dashed #94a3b8;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .drop-zone.empty::before {
+      content: 'Arraste blocos para montar a regra';
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .drop-token {
+      padding: 4px 8px;
+      background: #e0f2fe;
+      border: 1px solid #7dd3fc;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .drop-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -481,23 +542,64 @@
           <div class="syntax-help">
             <strong>Sintaxe:</strong><br>
             <code>se|quando|enquanto</code> [condição] <code>entao</code> [ação] <code>e</code> [ação] <code>senao</code> [ação]<br>
-            <strong>Condições:</strong> <code>trava|destrava|porta|ignicao|luz-interna|luz-assoalho|farol|drl == low|high</code><br>
+            <strong>Condições:</strong> <code>porta == aberta|fechada|on|off|liga|desliga</code> ou <code>trava|destrava|ignicao|luz-interna|luz-assoalho|farol|drl == on|off|liga|desliga</code><br>
             <strong>Operadores:</strong> <code>and|or|e|ou</code><br>
-            <strong>Ações:</strong> <code>luz-interna|luz-assoalho|farol|drl == high|low [em Xs] [por Ys]</code><br>
-            <strong>Exemplo:</strong> <code>se porta == low entao luz-interna == high senao luz-interna == low</code><br>
-            <strong>Exemplo 2:</strong> <code>quando destrava == low entao drl == low e farol == high</code>
+            <strong>Ações:</strong> <code>luz-interna|luz-assoalho|farol|drl = on|off|liga|desliga [em Xs] [por Ys]</code><br>
+            <strong>Exemplo:</strong> <code>se porta == aberta entao luz-interna = on senao luz-interna = off</code><br>
+            <strong>Exemplo 2:</strong> <code>quando destrava == off entao drl = off e farol = on</code>
+            <div class="help-text">Porta aberta = sinal LOW, porta fechada = sinal HIGH.</div>
           </div>
           
           <div class="form-group">
             <label>Regras (uma por linha)</label>
-            <textarea class="text-editor" id="rules-text" placeholder="se porta == low entao luz-interna == high senao luz-interna == low&#10;se ignicao == high entao farol == high senao farol == low&#10;quando destrava == low entao drl == low e farol == high"></textarea>
+            <textarea class="text-editor" id="rules-text" placeholder="se porta == aberta entao luz-interna = on senao luz-interna = off&#10;se ignicao == on entao farol = on senao farol = off&#10;quando destrava == off entao drl = off e farol = on"></textarea>
           </div>
           
           <button class="btn btn-action" onclick="applyTextRules()">Aplicar Regras</button>
+          <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn btn-action" onclick="exportConfig()">Exportar Config</button>
+            <button class="btn btn-action" onclick="triggerImport()">Importar Config</button>
+            <input type="file" id="import-file" accept="application/json" style="display: none;" onchange="importConfig(event)">
+          </div>
         </div>
         
         <!-- Modo Visual -->
         <div class="tab-content" id="tab-visual">
+          <div class="block-builder">
+            <div class="help-text">Arraste blocos para montar uma linha de regra e adicionar ao editor.</div>
+            <div class="block-palette" id="block-palette">
+              <div class="block-item" draggable="true" data-token="se">se</div>
+              <div class="block-item" draggable="true" data-token="quando">quando</div>
+              <div class="block-item" draggable="true" data-token="enquanto">enquanto</div>
+              <div class="block-item" draggable="true" data-token="porta">porta</div>
+              <div class="block-item" draggable="true" data-token="trava">trava</div>
+              <div class="block-item" draggable="true" data-token="destrava">destrava</div>
+              <div class="block-item" draggable="true" data-token="ignicao">ignicao</div>
+              <div class="block-item" draggable="true" data-token="luz-interna">luz-interna</div>
+              <div class="block-item" draggable="true" data-token="luz-assoalho">luz-assoalho</div>
+              <div class="block-item" draggable="true" data-token="farol">farol</div>
+              <div class="block-item" draggable="true" data-token="drl">drl</div>
+              <div class="block-item" draggable="true" data-token="==">==</div>
+              <div class="block-item" draggable="true" data-token="=">=</div>
+              <div class="block-item" draggable="true" data-token="aberta">aberta</div>
+              <div class="block-item" draggable="true" data-token="fechada">fechada</div>
+              <div class="block-item" draggable="true" data-token="on">on</div>
+              <div class="block-item" draggable="true" data-token="off">off</div>
+              <div class="block-item" draggable="true" data-token="liga">liga</div>
+              <div class="block-item" draggable="true" data-token="desliga">desliga</div>
+              <div class="block-item" draggable="true" data-token="em">em</div>
+              <div class="block-item" draggable="true" data-token="por">por</div>
+              <div class="block-item" draggable="true" data-token="entao">entao</div>
+              <div class="block-item" draggable="true" data-token="senao">senao</div>
+              <div class="block-item" draggable="true" data-token="e">e</div>
+              <div class="block-item" draggable="true" data-token="ou">ou</div>
+            </div>
+            <div class="drop-zone empty" id="block-drop" ondragover="onBlockDragOver(event)" ondrop="onBlockDrop(event)"></div>
+            <div class="drop-actions">
+              <button class="btn btn-action" onclick="addBuilderToRules()">Adicionar ao Editor</button>
+              <button class="btn btn-danger" onclick="clearBuilder()">Limpar</button>
+            </div>
+          </div>
           <div id="visual-rules"></div>
           <button class="btn btn-action" onclick="addVisualRule()">+ Adicionar Regra</button>
         </div>
@@ -511,6 +613,38 @@
   </div>
 
   <script>
+    let ws = null;
+    let wsConnected = false;
+
+    function connectWebSocket() {
+      const wsUrl = `ws://${location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        wsConnected = true;
+        logConsole('WebSocket conectado ao ESP32', 'success');
+      };
+
+      ws.onclose = () => {
+        wsConnected = false;
+        logConsole('WebSocket desconectado. Modo simulador ativo.', 'warning');
+        setTimeout(connectWebSocket, 2000);
+      };
+
+      ws.onerror = () => {
+        wsConnected = false;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          syncFromDevice(data);
+        } catch (e) {
+          logConsole('Erro ao processar dados do ESP32', 'error');
+        }
+      };
+    }
+
     // Estado do sistema
     let inputs = {
       trava: false,
@@ -529,9 +663,71 @@
     let rules = [];
     let timers = {};
     let visualRuleCount = 0;
+    let builderTokens = [];
+
+    function initBlockBuilder() {
+      document.querySelectorAll('.block-item').forEach(item => {
+        item.addEventListener('dragstart', onBlockDragStart);
+      });
+      renderBuilder();
+    }
+
+    function onBlockDragStart(event) {
+      event.dataTransfer.setData('text/plain', event.target.dataset.token);
+    }
+
+    function onBlockDragOver(event) {
+      event.preventDefault();
+    }
+
+    function onBlockDrop(event) {
+      event.preventDefault();
+      const token = event.dataTransfer.getData('text/plain');
+      if (token) {
+        builderTokens.push(token);
+        renderBuilder();
+      }
+    }
+
+    function renderBuilder() {
+      const zone = document.getElementById('block-drop');
+      if (!zone) return;
+      zone.innerHTML = '';
+      if (builderTokens.length === 0) {
+        zone.classList.add('empty');
+        return;
+      }
+      zone.classList.remove('empty');
+      builderTokens.forEach(token => {
+        const span = document.createElement('span');
+        span.className = 'drop-token';
+        span.textContent = token;
+        zone.appendChild(span);
+      });
+    }
+
+    function clearBuilder() {
+      builderTokens = [];
+      renderBuilder();
+    }
+
+    function addBuilderToRules() {
+      const line = builderTokens.join(' ').trim();
+      if (!line) return;
+      const editor = document.getElementById('rules-text');
+      editor.value = editor.value.trim()
+        ? `${editor.value.trim()}\n${line}`
+        : line;
+      clearBuilder();
+      applyTextRules();
+    }
     
     // Funções de simulação de entradas
     function pulseInput(name) {
+      if (wsConnected) {
+        logConsole('Entradas sao somente leitura no modo dispositivo', 'warning');
+        return;
+      }
       const item = document.getElementById(`input-${name}`);
       item.classList.add('active');
       inputs[name] = true;
@@ -546,6 +742,10 @@
     }
     
     function toggleInput(name) {
+      if (wsConnected) {
+        logConsole('Entradas sao somente leitura no modo dispositivo', 'warning');
+        return;
+      }
       inputs[name] = !inputs[name];
       const item = document.getElementById(`input-${name}`);
       const btn = document.getElementById(`btn-${name}`);
@@ -560,7 +760,7 @@
         btn.textContent = name === 'porta' ? 'ABRIR' : 'LIGAR';
       }
       
-      logConsole(`${name}: ${inputs[name] ? 'HIGH' : 'LOW'}`, 'info');
+      logConsole(`${name}: ${inputs[name] ? 'ON' : 'OFF'}`, 'info');
       evaluateRules();
     }
     
@@ -575,7 +775,7 @@
       }
       
       if (delay > 0) {
-        logConsole(`Agendado: ${name} = ${state ? 'HIGH' : 'LOW'} em ${delay}s` + 
+        logConsole(`Agendado: ${name} = ${state ? 'ON' : 'OFF'} em ${delay}s` + 
                    (duration > 0 ? ` por ${duration}s` : ''), 'warning');
         
         timers[name] = {
@@ -585,7 +785,7 @@
             if (duration > 0) {
               timers[name].durationTimeout = setTimeout(() => {
                 applyOutput(name, !state);
-                logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'HIGH' : 'LOW'}`, 'info');
+                logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'ON' : 'OFF'}`, 'info');
               }, duration * 1000);
             }
           }, delay * 1000)
@@ -597,14 +797,14 @@
           timers[name] = {
             durationTimeout: setTimeout(() => {
               applyOutput(name, !state);
-              logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'HIGH' : 'LOW'}`, 'info');
+              logConsole(`Timer finalizado: ${name} retornou para ${!state ? 'ON' : 'OFF'}`, 'info');
             }, duration * 1000)
           };
         }
       }
     }
     
-    function applyOutput(name, state) {
+    function applyOutput(name, state, log = true) {
       outputs[name] = state;
       const indicator = document.getElementById(`status-${name}`);
       const item = document.getElementById(`output-${name}`);
@@ -626,14 +826,22 @@
         }
       }
       
-      logConsole(`Saída alterada: ${name} = ${state ? 'HIGH' : 'LOW'}`, 'success');
+      if (log) {
+        logConsole(`Saída alterada: ${name} = ${state ? 'ON' : 'OFF'}`, 'success');
+      }
     }
     
     // Função de controle manual de saídas
     function toggleOutput(name) {
       outputs[name] = !outputs[name];
       applyOutput(name, outputs[name]);
-      logConsole(`Controle manual: ${name} = ${outputs[name] ? 'HIGH' : 'LOW'}`, 'info');
+      logConsole(`Controle manual: ${name} = ${outputs[name] ? 'ON' : 'OFF'}`, 'info');
+      sendOutputCommand(name, outputs[name]);
+    }
+
+    function sendOutputCommand(name, state) {
+      if (!wsConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ output: name, state }));
     }
     
     // Parser de regras em texto
@@ -717,24 +925,32 @@
     }
     
     function parseCondition(text) {
-      const match = text.match(/^(trava|destrava|porta|ignicao|ignição|luz-interna|luz-assoalho|farol|drl)\s*==\s*(low|high)$/);
+      const match = text.match(/^(trava|destrava|porta|ignicao|ignição|luz-interna|luz-assoalho|farol|drl)\s*==\s*(off|on|liga|desliga|aberta|fechada)$/);
       if (!match) return null;
       
-      return {
-        input: match[1] === 'ignição' ? 'ignicao' : match[1],
-        state: match[2] === 'low'
-      };
+      const input = match[1] === 'ignição' ? 'ignicao' : match[1];
+      const token = match[2];
+      let state = null;
+      if (token === 'on' || token === 'liga') state = true;
+      if (token === 'off' || token === 'desliga') state = false;
+      if (input === 'porta') {
+        if (token === 'aberta') state = true;
+        if (token === 'fechada') state = false;
+      }
+      if (state === null) return null;
+
+      return { input, state };
     }
     
     function parseAction(text) {
-      const match = text.match(/^(luz-interna|luz-assoalho|farol|drl)\s*==\s*(low|high)(?:\s+em\s+(\d+)s)?(?:\s+por\s+(\d+)s)?$/);
+      const match = text.match(/^(luz-interna|luz-assoalho|farol|drl)\s*(?:==|=)\s*(off|on|liga|desliga)(?:\s+em\s+(\d+)s)?(?:\s+por\s+(\d+)s)?$/);
       if (!match) {
         throw new Error('Formato de ação inválido');
       }
       
       return {
         output: match[1],
-        state: match[2] === 'high',
+        state: match[2] === 'on' || match[2] === 'liga',
         delay: match[3] ? parseInt(match[3]) : 0,
         duration: match[4] ? parseInt(match[4]) : 0
       };
@@ -747,6 +963,7 @@
     
     // Avaliação de regras
     function evaluateRules() {
+      if (wsConnected) return;
       for (let rule of rules) {
         const condResult = evaluateConditions(rule.conditions);
         
@@ -807,6 +1024,7 @@
       if (rules.length > 0) {
         logConsole(`${rules.length} regra(s) carregada(s) com sucesso!`, 'success');
         evaluateRules();
+        sendRulesToDevice();
       } else {
         logConsole('Nenhuma regra válida encontrada', 'warning');
       }
@@ -856,8 +1074,10 @@
               <div class="form-group">
                 <label>Estado</label>
                 <select id="vstate-${visualRuleCount}">
-                  <option value="low">LOW</option>
-                  <option value="high">HIGH</option>
+                  <option value="aberta">ABERTA</option>
+                  <option value="fechada">FECHADA</option>
+                  <option value="off">OFF</option>
+                  <option value="on">ON</option>
                 </select>
               </div>
               
@@ -886,8 +1106,8 @@
             <div class="form-group">
               <label>Ação</label>
               <select id="vaction-${visualRuleCount}">
-                <option value="high">HIGH</option>
-                <option value="low">LOW</option>
+                <option value="on">ON</option>
+                <option value="off">OFF</option>
               </select>
             </div>
             
@@ -922,28 +1142,35 @@
       const action = document.getElementById(`vaction-${id}`).value;
       const delay = parseInt(document.getElementById(`vdelay-${id}`).value) || 0;
       const duration = parseInt(document.getElementById(`vduration-${id}`).value) || 0;
-      
-      const rule = {
-        type,
-        conditions: [{
-          input,
-          state: state === 'low'
-        }],
-        actions: [{
-          output,
-          state: action === 'high',
-          delay,
-          duration
-        }],
-        elseActions: null,
-        original: `${type} ${input} == ${state} entao ${output} == ${action}` +
-                  (delay > 0 ? ` em ${delay}s` : '') +
-                  (duration > 0 ? ` por ${duration}s` : '')
-      };
-      
-      rules.push(rule);
-      logConsole(`Regra visual #${id} adicionada!`, 'success');
-      evaluateRules();
+
+      if (input !== 'porta' && (state === 'aberta' || state === 'fechada')) {
+        logConsole('Estado aberta/fechada so pode ser usado com porta', 'error');
+        return;
+      }
+
+      const line = `${type} ${input} == ${state} entao ${output} = ${action}` +
+                   (delay > 0 ? ` em ${delay}s` : '') +
+                   (duration > 0 ? ` por ${duration}s` : '');
+
+      const editor = document.getElementById('rules-text');
+      editor.value = editor.value.trim()
+        ? `${editor.value.trim()}\n${line}`
+        : line;
+
+      logConsole(`Regra visual #${id} adicionada ao editor!`, 'success');
+      applyTextRules();
+    }
+
+    function sendRulesToDevice() {
+      if (!wsConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const rulesText = getRulesText();
+      ws.send(JSON.stringify({ rules: rulesText }));
+    }
+
+    function getRulesText() {
+      const text = document.getElementById('rules-text').value.trim();
+      if (text) return text;
+      return rules.map(rule => rule.original).join('\n');
     }
     
     // Funções auxiliares
@@ -969,17 +1196,90 @@
         console.removeChild(console.firstChild);
       }
     }
+
+    function syncFromDevice(state) {
+      if (state.trava !== undefined) updateInputUI('trava', state.trava);
+      if (state.destrava !== undefined) updateInputUI('destrava', state.destrava);
+      if (state.porta !== undefined) updateInputUI('porta', state.porta);
+      if (state.ignicao !== undefined) updateInputUI('ignicao', state.ignicao);
+      if (state.luzInterna !== undefined) applyOutput('luz-interna', state.luzInterna, false);
+      if (state.luzAssoalho !== undefined) applyOutput('luz-assoalho', state.luzAssoalho, false);
+      if (state.farol !== undefined) applyOutput('farol', state.farol, false);
+      if (state.drl !== undefined) applyOutput('drl', state.drl, false);
+    }
+
+    function updateInputUI(name, state) {
+      inputs[name] = state;
+      const item = document.getElementById(`input-${name}`);
+      const btn = document.getElementById(`btn-${name}`);
+      if (state) {
+        item.classList.add('active');
+        if (btn) {
+          btn.classList.add('active');
+          btn.textContent = name === 'porta' ? 'FECHAR' : 'DESLIGAR';
+        }
+      } else {
+        item.classList.remove('active');
+        if (btn) {
+          btn.classList.remove('active');
+          btn.textContent = name === 'porta' ? 'ABRIR' : 'LIGAR';
+        }
+      }
+    }
+
+    function exportConfig() {
+      const config = {
+        version: 1,
+        rulesText: document.getElementById('rules-text').value
+      };
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'config-luzes.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function triggerImport() {
+      document.getElementById('import-file').click();
+    }
+
+    function importConfig(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (typeof data.rulesText !== 'string') {
+            throw new Error('Arquivo invalido');
+          }
+          document.getElementById('rules-text').value = data.rulesText;
+          applyTextRules();
+          logConsole('Configuracao importada com sucesso', 'success');
+        } catch (err) {
+          logConsole('Falha ao importar configuracao', 'error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
     
     // Inicialização
     logConsole('Sistema pronto! Digite suas regras ou use o modo visual.', 'success');
     
     // Exemplo de regras pré-carregadas
     const exampleRules = `// Exemplos com "senao" e multi-acoes
-  se porta == low entao luz-interna == high senao luz-interna == low
-  se ignicao == high entao farol == high em 2s senao farol == low
-  quando destrava == low entao drl == low e farol == high`;
+  se porta == aberta entao luz-interna = on senao luz-interna = off
+  se ignicao == on entao farol = on em 2s senao farol = off
+  quando destrava == off entao drl = off e farol = on`;
     
     document.getElementById('rules-text').value = exampleRules;
+    initBlockBuilder();
+    connectWebSocket();
   </script>
 </body>
 </html>
