@@ -36,27 +36,57 @@ class countDelay {
     }
 };
 
+struct statusCarro {
+  bool ignicao;
+  bool porta;
+  bool trava;
+  bool destrava;
+  bool farol;
+  bool drl;
+  bool luzTeto;
+  bool luzPe;
+  bool saiu;
+  bool entrou;
+};
 
-struct Botao {
+statusCarro carro = {false, false, false, false, false, false, false, false, false, false};
+// const char* statusNames(int id) {
+//   switch (id) {
+//     case 0: return "Ignicao";
+//     case 1: return "Porta";
+//     case 2: return "Trava";
+//     case 3: return "Destrava";
+//     case 4: return "Farol";
+//     case 5: return "DRL";
+//     case 6: return "Luz Teto";
+//     case 7: return "Luz Pe";
+//     case 8: return "Saiu";
+//     case 9: return "Entrou";
+//     default: return "null";
+//   }
+// }
+
+
+struct Entrada {
   uint8_t pino;
   bool estadoAtual;
   bool estadoAnterior;
 };
-Botao botoes[] = {
+Entrada entradas[] = {
   {PIN_IGNICAO, HIGH, HIGH},
   {PIN_PORTA, HIGH, HIGH},
   {PIN_TRAVA, HIGH, HIGH},
   {PIN_DESTRAVA, HIGH, HIGH}
 };
-const char* btNames(int id) {
-  switch (id) {
-    case 0: return "Ignicao";
-    case 1: return "Porta";
-    case 2: return "Trava";
-    case 3: return "Destrava";
-    default: return "null";
-  }
-}
+// const char* entradaNomes(int id) {
+//   switch (id) {
+//     case 0: return "Ignicao";
+//     case 1: return "Porta";
+//     case 2: return "Trava";
+//     case 3: return "Destrava";
+//     default: return "null";
+//   }
+// }
 
 struct Saida {
   uint8_t pino;
@@ -71,118 +101,165 @@ Saida saidas[] = {
   {PIN_LUZ_TETO, LOW, LOW, 0, 0},
   {PIN_LUZ_PE, LOW, LOW, 0, 0}
 };
-const char* outNames(int id) {
-  switch (id) {
-    case 0: return "Farol";
-    case 1: return "DRL";
-    case 2: return "L_Teto";
-    case 3: return "L_Pes";
-    default: return "null";
-  }
-}
+// const char* saidaNomes(int id) {
+//   switch (id) {
+//     case 0: return "Farol";
+//     case 1: return "DRL";
+//     case 2: return "L_Teto";
+//     case 3: return "L_Pes";
+//     default: return "null";
+//   }
+// }
 
-enum eventos {
-  LIGOU,
-  DESLIGOU,
-  ABRIU,
-  FECHOU,
-  TRAVOU,
-  DESTRAVOU
-};
-
-const int totalBotoes = sizeof(botoes) / sizeof(botoes[0]);
+const int totalEntradas = sizeof(entradas) / sizeof(entradas[0]);
 const int totalSaidas = sizeof(saidas) / sizeof(saidas[0]);
 
 countDelay T_on_farol;
 countDelay T_off_farol;
 
+countDelay T_on_drl;
+countDelay T_off_drl;
 
-void botaoPressionou(int id) {
+countDelay T_on_luzTeto;
+countDelay T_off_luzTeto;
 
+countDelay T_on_luzPe;
+countDelay T_off_luzPe;
+
+void printStatus(){
+  Serial.print("Ignicao: "); Serial.print(carro.ignicao ? "ON" : "OFF");
+  Serial.print(" | Porta: "); Serial.print(carro.porta ? "ABERTA" : "FECHADA");
+  Serial.print(" | Trava: "); Serial.print(carro.trava ? "TRAVADA" : "DESTRAVADA");
+  Serial.print(" | Farol: "); Serial.print(carro.farol ? "ON" : "OFF");
+  Serial.print(" | DRL: "); Serial.print(carro.drl ? "ON" : "OFF");
+  Serial.print(" | Luz Teto: "); Serial.print(carro.luzTeto ? "ON" : "OFF");
+  Serial.print(" | Luz Pe: "); Serial.print(carro.luzPe ? "ON" : "OFF");
+  Serial.print(" | Ocupado: "); Serial.println(carro.entrou ? "SIM" : "NAO");
+}
+
+void loopSaidas(){
+    if (T_on_farol.hasCompleted()) {
+    Serial.println("Contador completado! Ligando farol...");
+    digitalWrite(PIN_FAROL, HIGH);
+    carro.farol = true;
+    T_on_farol.stop(); // Para evitar múltiplas ativações
+  }
+
+  if (T_off_farol.hasCompleted()) {
+    Serial.println("Contador completado! Desligando farol...");
+    digitalWrite(PIN_FAROL, LOW);
+    carro.farol = false;
+    T_off_farol.stop(); // Para evitar múltiplas ativações
+  }
+}
+
+void processaStatus(){
+  // Exemplo de processamento: Se porta aberta e ignição desligada, ligar DRL
+  // if (carro.porta && !carro.ignicao) {
+  //   digitalWrite(PIN_DRL, HIGH);
+  //   carro.drl = true;
+  // } else {
+  //   digitalWrite(PIN_DRL, LOW);
+  //   carro.drl = false;
+  // }
+
+  if(carro.ignicao == false and carro.trava == true){ //se ignição desligada e trava ativada, ligar farol por 1s e desligar após 10s
+    T_on_farol.start(1000); //ligar farol após 1s
+    T_off_farol.start(10000); //desligar farol após 10s
+  };
+
+  if(carro.ignicao == false and carro.destrava == true){ //se ignição desligada e destrava ativada, ligar farol por 2s e desligar após 6s
+    T_on_farol.start(2000); //ligar farol após 2s
+    T_off_farol.start(6000); //desligar farol após 6s
+  }
+  
+  if(carro.ignicao == true){ //se ignição ligada, desligar farol imediatamente
+    T_on_farol.stop();
+    T_off_farol.stop();
+    Serial.println("Contadores de farol parados.");
+  };
+
+  // if(entradas){
+
+  // }
+
+
+  printStatus();
+}
+
+void entradaLigou(int id) {
   switch (id){
     case 0: // ignição 
-        Serial.print(btNames(id));
-        Serial.println(" ligou");
-
-        //listaEventos.push_back(LIGOU);
+        carro.ignicao = true;
     break;
 
     case 1: // porta
-        Serial.print(btNames(id));
-        Serial.println(" abriu");
+        carro.porta = true;
     break;
 
     case 2: // trava
-        Serial.print(btNames(id));
-        Serial.println(" travou");
-
-        T_on_farol.start(1000);
-        T_off_farol.start(10000);
-
+        carro.trava = true; 
+        carro.destrava = false; 
     break;
 
     case 3: // destrava
-        Serial.print(btNames(id));
-        Serial.println(" destravou");
-
-        T_on_farol.start(2000);
-        T_off_farol.start(6000);
-
+        carro.destrava = true;
+        carro.trava = false;
     break;
 
     default:
       break;
   }
+
+  processaStatus();
 }
 
-void botaoSoltou(int id) {
-
+void entradaDesligou(int id) {
   switch (id){
     case 0: // ignição 
-        Serial.print(btNames(id));
-        Serial.println(" desligou");
+        carro.ignicao = false;
     break;
 
     case 1: // porta
-        Serial.print(btNames(id));
-        Serial.println(" fechou");
+        carro.porta = false;
     break;
 
     default:
       break;
   }
+  processaStatus();
 }
 
-void readButtons(){
-  for (int i = 0; i < totalBotoes; i++) {
+void lerEntradas(){
+  for (int i = 0; i < totalEntradas; i++) {
 
-    botoes[i].estadoAtual = digitalRead(botoes[i].pino);
+    entradas[i].estadoAtual = digitalRead(entradas[i].pino);
     delay(10); // debounce
 
     // HIGH → LOW
-    if (botoes[i].estadoAnterior == HIGH &&
-        botoes[i].estadoAtual == LOW) {
+    if (entradas[i].estadoAnterior == HIGH &&
+        entradas[i].estadoAtual == LOW) {
 
-      botaoPressionou(i);
+      entradaLigou(i);
     }
 
     // LOW → HIGH
-    if (botoes[i].estadoAnterior == LOW &&
-        botoes[i].estadoAtual == HIGH) {
+    if (entradas[i].estadoAnterior == LOW &&
+        entradas[i].estadoAtual == HIGH) {
 
-      botaoSoltou(i);
+      entradaDesligou(i);
     }
 
-    botoes[i].estadoAnterior = botoes[i].estadoAtual;
+    entradas[i].estadoAnterior = entradas[i].estadoAtual;
   }
 }
 
 void setup() {
   Serial.begin(115200);
 
-  for (int i = 0; i < totalBotoes; i++) {
-    pinMode(botoes[i].pino, INPUT_PULLUP);
-    botoes[i].estadoAnterior = digitalRead(botoes[i].pino);
+  for (int i = 0; i < totalEntradas; i++) {
+    pinMode(entradas[i].pino, INPUT_PULLUP);
+    entradas[i].estadoAnterior = digitalRead(entradas[i].pino);
   }
   
   for (int i = 0; i < totalSaidas; i++) {
@@ -192,19 +269,8 @@ void setup() {
 }
 
 void loop() {
-  readButtons();
+  lerEntradas();
   delay(50);
-
-  if (T_on_farol.hasCompleted()) {
-    Serial.println("Contador completado! Ligando farol...");
-    digitalWrite(PIN_FAROL, HIGH);
-    T_on_farol.stop(); // Para evitar múltiplas ativações
-  }
-
-  if (T_off_farol.hasCompleted()) {
-    Serial.println("Contador completado! Desligando farol...");
-    digitalWrite(PIN_FAROL, LOW);
-    T_off_farol.stop(); // Para evitar múltiplas ativações
-  }
+  loopSaidas();
 }
 
