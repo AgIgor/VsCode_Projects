@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BCM Automotiva - Ladder Logic</title>
+  <title>BCM Monitor</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -11,784 +11,410 @@
       --text: #e5e7eb;
       --muted: #94a3b8;
       --accent: #22d3ee;
-      --accent-dark: #0891b2;
-      --border: #1f2937;
       --danger: #ef4444;
       --success: #10b981;
     }
-    
+
     * { box-sizing: border-box; }
-    body { 
-      margin: 0; 
+    body {
+      margin: 0;
       font-family: 'Courier New', monospace;
-      background: var(--bg); 
-      color: var(--text); 
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.6;
     }
-    
-    .container { max-width: 1200px; margin: 0 auto; padding: 0.75rem; }
-    
-    header { 
+
+    .container { max-width: 1000px; margin: 0 auto; padding: 1rem; }
+
+    header {
       background: linear-gradient(135deg, #0b1020 0%, #111827 100%);
-      border-bottom: 2px solid var(--accent);
-      padding: 1.5rem 1rem;
-      margin-bottom: 1rem;
-      border-radius: 12px;
-    }
-    h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
-    .subtitle { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.85rem; }
-
-    .toolbar { 
-      display: flex; 
-      gap: 0.5rem; 
-      margin-bottom: 1rem; 
-      flex-wrap: wrap;
-    }
-    
-    .btn { 
-      background: var(--accent); 
-      color: #001318; 
-      border: none; 
-      border-radius: 8px; 
-      padding: 0.55rem 1rem; 
-      font-weight: 600; 
-      cursor: pointer; 
-      font-size: 0.85rem; 
-      transition: all 0.2s;
-    }
-    .btn:hover { background: var(--accent-dark); transform: translateY(-2px); }
-    .btn.secondary { 
-      background: transparent; 
-      color: var(--text); 
-      border: 2px solid var(--accent);
-    }
-    .btn.secondary:hover { background: rgba(34, 211, 238, 0.1); }
-    .btn.danger { background: var(--danger); color: white; }
-    .btn.danger:hover { background: #dc2626; }
-
-    .card { 
-      background: var(--card); 
-      border: 1px solid var(--border); 
-      border-radius: 12px; 
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .card-header { 
-      background: linear-gradient(90deg, #0b1020 0%, #151b2a 100%);
-      padding: 0.75rem;
-      font-weight: 600;
-      color: var(--accent);
-      cursor: pointer;
-      user-select: none;
-    }
-    
-    .card-body { 
-      display: none; 
-      padding: 1rem; 
-      border-top: 1px solid var(--border);
-    }
-    
-    .card.open .card-body { display: block; }
-
-    .form-group { 
-      display: grid; 
-      grid-template-columns: 1fr; 
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-    }
-    
-    .form-label { 
-      font-weight: 500; 
-      color: var(--text);
-      font-size: 0.85rem;
-    }
-    
-    textarea, input[type="text"], select { 
-      padding: 0.6rem 0.8rem; 
-      border-radius: 8px; 
-      border: 1px solid var(--border); 
-      background: #0b1020; 
-      color: var(--text); 
-      font-size: 0.9rem;
-      font-family: 'Courier New', monospace;
-      transition: border-color 0.2s;
-    }
-    
-    textarea:focus, input:focus, select:focus { 
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
-    }
-    
-    textarea {
-      resize: vertical;
-      min-height: 150px;
-      font-size: 0.85rem;
-      line-height: 1.8;
-    }
-
-    .rungs-list {
-      display: grid;
-      gap: 0.75rem;
-    }
-    
-    .rung-item {
-      background: rgba(34, 211, 238, 0.05);
-      border: 2px solid rgba(34, 211, 238, 0.2);
-      border-radius: 8px;
-      padding: 0.75rem;
-    }
-    
-    .rung-text {
-      color: var(--text);
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
-      word-break: break-all;
-      font-family: 'Courier New', monospace;
-    }
-    
-    .rung-status {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    
-    .rung-status.success { color: var(--success); }
-    .rung-status.error { color: var(--danger); }
-
-    .actions-row { 
-      display: flex; 
-      gap: 0.5rem; 
-      margin-top: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .help-text {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 0.5rem;
-      line-height: 1.6;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    .empty-state {
-      text-align: center;
+      border-bottom: 3px solid var(--accent);
       padding: 1.5rem;
-      color: var(--muted);
+      margin-bottom: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
     }
 
-    .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      background: var(--success);
-      color: white;
-      padding: 0.75rem 1.25rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      animation: slideIn 0.3s ease-out;
-      font-size: 0.9rem;
-      z-index: 1000;
-    }
-    @keyframes slideIn {
-      from { transform: translateX(400px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+    h1 { margin: 0; font-size: 2rem; color: var(--accent); }
+    .subtitle { color: var(--muted); margin: 0.5rem 0 0; font-size: 0.9rem; }
+
+    .grid { 
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
     }
 
-    .status-grid {
+    .panel {
+      background: var(--card);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s;
+    }
+
+    .panel:hover { box-shadow: 0 0 20px rgba(34, 211, 238, 0.3); }
+
+    .panel-title {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .sensor-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 0.5rem;
-    }
-    .status-item {
-      background: #0b1020;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .status-label {
-      font-weight: 500;
-      font-size: 0.8rem;
-    }
-    .status-indicator {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .status-on { background: var(--success); }
-    .status-off { background: #374151; }
-    
-    .control-btn {
-      background: var(--accent);
-      color: #001318;
-      border: none;
-      border-radius: 5px;
-      padding: 0.4rem 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: all 0.2s;
-      width: 100%;
-      margin-top: 0.5rem;
-    }
-    .control-btn:hover {
-      background: var(--accent-dark);
-      transform: translateY(-2px);
+      gap: 0.75rem;
     }
 
-    @media (max-width: 480px) {
+    .sensor {
+      background: #0b1020;
+      border: 1px solid var(--muted);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .sensor-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    .sensor-value {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1s infinite;
+    }
+
+    .indicator.on {
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+    }
+
+    .indicator.off {
+      background: #374151;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-text {
+      font-weight: 600;
+    }
+
+    .status-text.on { color: var(--success); }
+    .status-text.off { color: var(--muted); }
+
+    .logs-panel {
+      background: var(--card);
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 1.5rem;
+      grid-column: 1 / -1;
+    }
+
+    .logs-title {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .logs-container {
+      background: #0b1020;
+      border: 1px solid var(--muted);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log-entry {
+      padding: 0.4rem 0;
+      color: var(--text);
+      word-break: break-word;
+      border-bottom: 1px solid rgba(149, 165, 166, 0.1);
+    }
+
+    .log-entry:last-child { border-bottom: none; }
+
+    .log-time {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--muted);
+    }
+
+    @media (max-width: 600px) {
       .container { padding: 0.5rem; }
-      textarea { min-height: 120px; }
+      h1 { font-size: 1.5rem; }
+      .sensor-grid { grid-template-columns: 1fr; }
+    }
+
+    .connection-status {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: var(--success);
+      color: #001318;
+    }
+
+    .connection-status.offline {
+      background: var(--danger);
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.5; }
     }
   </style>
 </head>
 <body>
+  <div class="connection-status" id="connStatus">🟢 Online</div>
+
   <div class="container">
     <header>
-      <h1 id="bcm-title">E BCM_ESP32</h1>
-      <p class="subtitle">Ladder Logic em Formato Texto</p>
+      <h1>🚗 BCM MONITOR</h1>
+      <p class="subtitle">Sistema de Automação Automotiva</p>
     </header>
 
-    <div class="toolbar">
-      <button class="btn" id="saveAll">Salvar</button>
-      <button class="btn secondary" id="exportConfig">Exportar</button>
-      <button class="btn secondary" id="importConfig">Importar</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none;" />
-    </div>
-
-    <!-- Editor Ladder -->
-    <div class="card open" id="editor-card">
-      <div class="card-header">
-        📐 Degraus Ladder
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label class="form-label">Degraus (um por linha):</label>
-          <textarea id="ladderInput" placeholder="Exemplos:
-
--|ignicao|-  -( farol )
---|ignicao|--  -/ farol
--|trava|-  -( farol ) (+1s:20s)
--|trava|-  --|farol|--  -( farol ) (+1s:30s)
--|porta|-  +  -|ignicao|-  -( drl )"></textarea>
-          
-          <div class="help-text">
-            <strong>CONTATOS (Entradas/Saidas):</strong><br/>
-            ignicao, porta, trava, destrava, farol, drl, luz-interna, luz-assoalho<br/>
-            <br/>
-            <strong>OPERADORES:</strong><br/>
-            -| contato |- = Contato normalmente aberto (NO) / ligado<br/>
-            --;| contato |-- = Contato normalmente fechado (NC) / desligado / inverso<br/>
-            | + | = Paralelo (OR)<br/>
-            | -- - | = Serie (AND)<br/>
-            <br/>
-            <strong>SAIDAS:</strong><br/>
-            -( ) = LIGAR saida<br/>
-            -/ = DESLIGAR saida<br/>
-            <br/>
-            <strong>TIMING:</strong><br/>
-            -( farol ) (+2s) = liga apos 2s e desliga apos mais 5s total<br/>
+    <div class="grid">
+      <!-- INPUTS -->
+      <div class="panel">
+        <div class="panel-title">📍 ENTRADAS (Sensores)</div>
+        <div class="sensor-grid">
+          <div class="sensor">
+            <div class="sensor-label">Ignição</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-ignicao"></span>
+              <span class="status-text" id="txt-ignicao">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">Porta</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-porta"></span>
+              <span class="status-text" id="txt-porta">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">Trava</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-trava"></span>
+              <span class="status-text" id="txt-trava">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">Destrava</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-destrava"></span>
+              <span class="status-text" id="txt-destrava">OFF</span>
+            </div>
           </div>
         </div>
-        
-        <div class="actions-row">
-          <button class="btn" id="addRung">Adicionar</button>
-          <button class="btn secondary" id="clearInput">Limpar</button>
-        </div>
+      </div>
 
-        <span style="font-weight: 600; color: var(--accent); display: block; margin-top: 1.5rem; margin-bottom: 0.75rem;">📋 Degraus Ativos</span>
-        <div class="rungs-list" id="rungsList">
-          <div class="empty-state">Nenhum degrau</div>
+      <!-- OUTPUTS -->
+      <div class="panel">
+        <div class="panel-title">💡 SAÍDAS (Luzes)</div>
+        <div class="sensor-grid">
+          <div class="sensor">
+            <div class="sensor-label">Farol</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-farol"></span>
+              <span class="status-text" id="txt-farol">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">DRL</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-drl"></span>
+              <span class="status-text" id="txt-drl">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">Luz Teto</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-luz_teto"></span>
+              <span class="status-text" id="txt-luz_teto">OFF</span>
+            </div>
+          </div>
+          <div class="sensor">
+            <div class="sensor-label">Luz Pé</div>
+            <div class="sensor-value">
+              <span class="indicator" id="ind-luz_pe"></span>
+              <span class="status-text" id="txt-luz_pe">OFF</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Status Monitor -->
-    <div class="card open" id="status-card">
-      <div class="card-header">
-        🔌 Status
-      </div>
-      <div class="card-body">
-        <div style="margin-bottom: 1rem;">
-          <div style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">Entradas</div>
-          <div class="status-grid" id="inputs-status"></div>
-        </div>
-
-        <div>
-          <div style="font-weight: 600; color: var(--accent); margin-bottom: 0.5rem;">Saidas</div>
-          <div class="status-grid" id="outputs-status"></div>
-        </div>
+    <!-- ÚLTIMA AÇÃO E TIMERS -->
+    <div class="logs-panel">
+      <div class="logs-title">⚡ Última Ação</div>
+      <div class="logs-container" id="logs-container" style="min-height: 60px; display: flex; align-items: center;">
+        <div class="log-entry" style="color: var(--muted); margin: 0;">Aguardando eventos...</div>
       </div>
     </div>
 
-    <!-- Logs -->
-    <div class="card collapsed" id="logs-card">
-      <div class="card-header">
-        📝 Logs
-      </div>
-      <div class="card-body">
-        <div style="background: #0b1020; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-family: 'Courier New', monospace; font-size: 0.75rem; max-height: 200px; overflow-y: auto; white-space: pre-wrap;" id="logs-view">Sem logs</div>
+    <div class="logs-panel">
+      <div class="logs-title">⏱️ Timers Ativos</div>
+      <div id="timers-container" style="background: #0b1020; border: 1px solid var(--muted); border-radius: 8px; padding: 1rem; font-size: 1.1rem; font-weight: 600; color: var(--accent); min-height: 80px; display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="color: var(--muted);">Nenhum timer ativo</div>
       </div>
     </div>
 
-    <!-- JSON Preview -->
-    <div class="card collapsed" id="preview-card">
-      <div class="card-header">
-        {} JSON (Configuracao)
-      </div>
-      <div class="card-body">
-        <pre style="margin: 0; white-space: pre-wrap; background: #0b1020; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; font-size: 0.75rem; max-height: 200px; overflow-y: auto;" id="preview">{}</pre>
-      </div>
+    <div class="footer">
+      Atualizado a cada 500ms | IP: 192.168.4.1 | Admin: admin / admin123
     </div>
   </div>
 
   <script>
-    const INPUTS = ['ignicao', 'porta', 'trava', 'destrava'];
-    const OUTPUTS = ['farol', 'drl', 'luz-interna', 'luz-assoalho'];
-    const ALL_ENTITIES = [...INPUTS, ...OUTPUTS];
-    
-    let rungs = [];
+    const inputs = ['ignicao', 'porta', 'trava', 'destrava'];
+    const outputs = ['farol', 'drl', 'luz_teto', 'luz_pe'];
+    let logs = [];
+    let updateCount = 0;
 
-    // Parser Ladder em texto
-    function parseLadder(text) {
-      // Formato: -|entity|-- | contatos -( saida ) | timing
-      text = text.trim();
-      if (!text) return { error: 'Linha vazia' };
-
-      // Validar presenca de saida
-      if (!text.includes('-(') && !text.includes('-/')) {
-        return { error: 'Saida nao encontrada (-( ... ) ou -/)' };
-      }
-
-      // Separar contatos de saida
-      let contactsStr, outputStr;
-      if (text.includes('-(')) {
-        [contactsStr, outputStr] = text.split('-(');
-        outputStr = '(' + outputStr;
-      } else {
-        [contactsStr, outputStr] = text.split('-/');
-        outputStr = '/' + outputStr;
-      }
-
-      // Parse saida
-      const outputCmd = outputStr.startsWith('(') ? 'ligar' : 'desligar';
-      const outputContent = outputStr.replace(/[()\/]/g, '').trim();
-      const outputParts = outputContent.match(/([a-z\-]+)(?:\s*\+?(\d+)s(?::(\d+)s)?)?/);
-      
-      if (!outputParts) {
-        return { error: 'Saida invalida' };
-      }
-
-      const output = outputParts[1];
-      if (!ALL_ENTITIES.includes(output)) {
-        return { error: 'Saida nao conhecida: ' + output };
-      }
-
-      // Parse timing
-      let ligar = null, desligar = null;
-      if (outputParts[2]) {
-        const delay = parseInt(outputParts[2]);
-        if (outputCmd === 'ligar') {
-          ligar = delay;
-          desligar = outputParts[3] ? parseInt(outputParts[3]) - delay : null;
-        } else {
-          desligar = delay;
-        }
-      } else {
-        if (outputCmd === 'ligar') ligar = 0;
-        else desligar = 0;
-      }
-
-      // Parse contatos (NO, NC, AND, OR)
-      const contacts = parseContacts(contactsStr);
-      if (!contacts || contacts.length === 0) {
-        return { error: 'Nenhum contato encontrado' };
-      }
-
-      return {
-        original: text,
-        contacts,
-        output,
-        command: outputCmd,
-        ligar,
-        desligar
-      };
-    }
-
-    function parseContacts(str) {
-      const contacts = [];
-      
-      // Procurar padroes: -|entity|- (NO) ou --|entity|-- (NC)
-      // Suportar | + | (OR) e separacao por espaco (AND)
-      
-      // Expandir a string substituindo separadores
-      str = str.replace(/\s*\+\s*/g, '|OR|').replace(/\s+/g, '|AND|');
-      
-      // Extrair contatos
-      const regex = /-{1,2}\|([a-z\-]+)\|(-{1,2})?/g;
-      let match;
-      let prevOperator = null;
-
-      while ((match = regex.exec(str)) !== null) {
-        const entity = match[1];
-        const isNC = match[0].startsWith('--'); // NC se comeca com --
-
-        if (!ALL_ENTITIES.includes(entity)) {
-          return null;
-        }
-
-        contacts.push({
-          entity,
-          negated: isNC,
-          state: isNC ? 'desligado' : 'ligado',
-          operator: prevOperator
-        });
-
-        // Procurar proximo operador
-        const rest = str.substring(match.index + match[0].length);
-        if (rest.includes('|OR|')) {
-          prevOperator = 'ou';
-          str = str.substring(0, match.index + match[0].length) + rest.replace('|OR|', '');
-        } else if (rest.includes('|AND|')) {
-          prevOperator = 'e';
-          str = str.substring(0, match.index + match[0].length) + rest.replace('|AND|', '');
-        }
-      }
-
-      return contacts;
-    }
-
-    function addRung() {
-      const text = document.getElementById('ladderInput').value.trim();
-      if (!text) {
-        showToast('Digite um degrau');
-        return;
-      }
-
-      // Parsear cada linha
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      for (const line of lines) {
-        const result = parseLadder(line);
-        if (result.error) {
-          showToast('Erro: ' + result.error + ' em: ' + line);
-          return;
-        }
-        rungs.push(result);
-      }
-
-      renderRungs();
-      renderPreview();
-      document.getElementById('ladderInput').value = '';
-      showToast('Degrau(s) adicionado(s)');
-    }
-
-    function renderRungs() {
-      const container = document.getElementById('rungsList');
-      if (rungs.length === 0) {
-        container.innerHTML = '<div class="empty-state">Nenhum degrau criado</div>';
-        return;
-      }
-
-      container.innerHTML = '';
-      rungs.forEach((rung, idx) => {
-        const item = document.createElement('div');
-        item.className = 'rung-item';
-
-        const text = document.createElement('div');
-        text.className = 'rung-text';
-        text.textContent = rung.original;
-
-        const status = document.createElement('div');
-        status.className = 'rung-status success';
-        const contactInfo = rung.contacts.map(c => c.entity).join(', ');
-        status.textContent = '✓ ' + contactInfo + ' -> ' + rung.command + ' ' + rung.output;
-
-        const btnRow = document.createElement('div');
-        btnRow.style.display = 'flex';
-        btnRow.style.gap = '0.5rem';
-        btnRow.style.marginTop = '0.5rem';
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-small danger';
-        deleteBtn.style.padding = '0.4rem 0.8rem';
-        deleteBtn.style.fontSize = '0.8rem';
-        deleteBtn.textContent = 'Deletar';
-        deleteBtn.addEventListener('click', () => {
-          rungs.splice(idx, 1);
-          renderRungs();
-          renderPreview();
-        });
-
-        btnRow.appendChild(deleteBtn);
-
-        item.appendChild(text);
-        item.appendChild(status);
-        item.appendChild(btnRow);
-        container.appendChild(item);
-      });
-    }
-
-    function renderPreview() {
-      // Converter Ladder para JSON interno
-      const logicas = rungs.map(rung => {
-        // Criar trigger a partir do primeiro contato
-        const trigger = {
-          entity: rung.contacts[0].entity,
-          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
-        };
-
-        // Condicoes = resto dos contatos
-        const conditions = rung.contacts.slice(1).map(c => ({
-          entity: c.entity,
-          state: c.state,
-          negated: c.negated,
-          operator: c.operator
-        }));
-
-        return {
-          original: rung.original,
-          trigger,
-          conditions,
-          actions: [{
-            output: rung.output,
-            command: rung.command,
-            ligar: rung.ligar,
-            desligar: rung.desligar
-          }]
-        };
-      });
-
-      const config = { logicas };
-      document.getElementById('preview').textContent = JSON.stringify(config, null, 2);
-    }
-
-    function saveConfig() {
-      if (rungs.length === 0) {
-        showToast('Nenhum degrau para salvar');
-        return;
-      }
-
-      const logicas = rungs.map(rung => {
-        const trigger = {
-          entity: rung.contacts[0].entity,
-          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
-        };
-        const conditions = rung.contacts.slice(1).map(c => ({
-          entity: c.entity,
-          state: c.state,
-          negated: c.negated,
-          operator: c.operator
-        }));
-
-        return {
-          original: rung.original,
-          trigger,
-          conditions,
-          actions: [{
-            output: rung.output,
-            command: rung.command,
-            ligar: rung.ligar,
-            desligar: rung.desligar
-          }]
-        };
-      });
-
-      const config = { logicas };
-
-      showToast('Salvando...');
-      fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          showToast('Salvo!');
-        } else {
-          showToast('Erro ao salvar');
+    function updateStatus() {
+      fetch('/api/status', {
+        headers: {
+          'Authorization': 'Basic ' + btoa('admin:admin123')
         }
       })
-      .catch(err => showToast('Erro de rede'));
-    }
-
-    function showToast(msg) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = msg;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 2500);
-    }
-
-    function exportConfig() {
-      const logicas = rungs.map(rung => {
-        const trigger = {
-          entity: rung.contacts[0].entity,
-          event: rung.contacts[0].negated ? 'desligou' : 'ligou'
-        };
-        const conditions = rung.contacts.slice(1);
-        return { original: rung.original, trigger, conditions, actions: [{ output: rung.output, command: rung.command, ligar: rung.ligar, desligar: rung.desligar }] };
-      });
-      const config = { logicas };
-      
-      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'bcm_ladder.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Exportado');
-    }
-
-    function loadConfig() {
-      fetch('/api/config')
         .then(res => res.json())
         .then(data => {
-          if (data.logicas && Array.isArray(data.logicas)) {
-            rungs = data.logicas.map(r => ({
-              original: r.original || '',
-              contacts: r.contacts || [],
-              output: r.actions?.[0]?.output || '',
-              command: r.actions?.[0]?.command || 'ligar',
-              ligar: r.actions?.[0]?.ligar,
-              desligar: r.actions?.[0]?.desligar
-            }));
-            renderRungs();
-            renderPreview();
+          // Atualizar inputs
+          inputs.forEach(inp => {
+            const state = data[inp] || false;
+            updateElement(inp, state, true);
+          });
+
+          // Atualizar outputs
+          outputs.forEach(out => {
+            const state = data[out] || false;
+            updateElement(out, state, false);
+          });
+
+          updateConnStatus(true);
+        })
+        .catch(err => {
+          console.error('Erro:', err);
+          updateConnStatus(false);
+        });
+
+      // Atualizar logs e timers
+      fetch('/api/logs', {
+        headers: {
+          'Authorization': 'Basic ' + btoa('admin:admin123')
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Última ação
+          const logsEl = document.getElementById('logs-container');
+          if (data.ultimaacao && data.ultimaacao.length > 0) {
+            logsEl.innerHTML = `<div class="log-entry" style="margin: 0; color: var(--accent);">${escapeHtml(data.ultimaacao)}</div>`;
+          } else {
+            logsEl.innerHTML = '<div class="log-entry" style="color: var(--muted); margin: 0;">Aguardando eventos...</div>';
+          }
+
+          // Timers
+          const timersEl = document.getElementById('timers-container');
+          const timers = data.timers || {};
+          let timerHtml = '';
+
+          if (timers.trava_ms !== undefined) {
+            const remainingSecs = timers.trava_ms;
+            timerHtml += `<div>🔒 TRAVA: ${remainingSecs}s restante</div>`;
+          }
+          if (timers.destrava_ms !== undefined) {
+            const remainingSecs = timers.destrava_ms;
+            timerHtml += `<div>🔓 DESTRAVA: ${remainingSecs}s restante</div>`;
+          }
+
+          if (timerHtml.length === 0) {
+            timersEl.innerHTML = '<div style="color: var(--muted);">Nenhum timer ativo</div>';
+          } else {
+            timersEl.innerHTML = timerHtml;
           }
         })
-        .catch(err => console.error(err));
+        .catch(err => console.error('Erro logs:', err));
     }
 
-    // Event listeners
-    document.getElementById('addRung').addEventListener('click', addRung);
-    document.getElementById('ladderInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && e.ctrlKey) addRung();
-    });
-    document.getElementById('clearInput').addEventListener('click', () => {
-      document.getElementById('ladderInput').value = '';
-    });
-    document.getElementById('saveAll').addEventListener('click', saveConfig);
-    document.getElementById('exportConfig').addEventListener('click', exportConfig);
-    document.getElementById('importConfig').addEventListener('click', () => document.getElementById('importFile').click());
-    document.getElementById('importFile').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        file.text().then(text => {
-          try {
-            const config = JSON.parse(text);
-            if (config.logicas) {
-              rungs = config.logicas.map(r => ({
-                original: r.original || '',
-                contacts: r.contacts || [],
-                output: r.actions?.[0]?.output || '',
-                command: r.actions?.[0]?.command || 'ligar',
-                ligar: r.actions?.[0]?.ligar,
-                desligar: r.actions?.[0]?.desligar
-              }));
-              renderRungs();
-              renderPreview();
-              saveConfig();
-              showToast('Importado');
-            }
-          } catch (err) {
-            showToast('Erro ao importar');
-          }
-        });
+    function updateElement(name, state, isInput) {
+      const ind = document.getElementById(`ind-${name}`);
+      const txt = document.getElementById(`txt-${name}`);
+
+      if (ind && txt) {
+        ind.classList.remove('on', 'off');
+        ind.classList.add(state ? 'on' : 'off');
+
+        txt.classList.remove('on', 'off');
+        txt.classList.add(state ? 'on' : 'off');
+
+        txt.textContent = state ? 'ON' : 'OFF';
       }
-      e.target.value = '';
-    });
-
-    // Toggle cards
-    document.querySelectorAll('.card-header').forEach(header => {
-      header.addEventListener('click', (e) => {
-        const card = e.target.closest('.card');
-        card.classList.toggle('open');
-        card.classList.toggle('collapsed');
-      });
-    });
-
-    // Status monitor
-    function updateStatus() {
-      fetch('/api/status')
-        .then(res => res.json())
-        .then(data => {
-          const inputsGrid = document.getElementById('inputs-status');
-          const outputsGrid = document.getElementById('outputs-status');
-          
-          inputsGrid.innerHTML = '';
-          const inputsMeta = [
-            { key: 'ignicao', label: 'Ignicao' },
-            { key: 'porta', label: 'Porta' },
-            { key: 'trava', label: 'Trava' },
-            { key: 'destrava', label: 'Destrava' }
-          ];
-          
-          inputsMeta.forEach(inp => {
-            const isOn = data.inputs[inp.key];
-            const item = document.createElement('div');
-            item.className = 'status-item';
-            item.innerHTML = '<span class="status-label">' + inp.label + '</span><span class="status-indicator ' + (isOn ? 'status-on' : 'status-off') + '"></span>';
-            inputsGrid.appendChild(item);
-          });
-
-          outputsGrid.innerHTML = '';
-          const outputsMeta = [
-            { key: 'farol', label: 'Farol' },
-            { key: 'drl', label: 'DRL' },
-            { key: 'luz-interna', label: 'Luz Int' },
-            { key: 'luz-assoalho', label: 'Luz Pes' }
-          ];
-          
-          outputsMeta.forEach(out => {
-            const isOn = data.outputs[out.key] === 1;
-            const item = document.createElement('div');
-            item.className = 'status-item';
-            item.innerHTML = '<span class="status-label">' + out.label + '</span><button class="control-btn" style="flex: none; width: 80px;">Ligar</button>';
-            item.querySelector('.control-btn').textContent = isOn ? 'Desligar' : 'Ligar';
-            item.querySelector('.control-btn').addEventListener('click', () => toggleOutput(out.key));
-            outputsGrid.appendChild(item);
-          });
-        });
     }
 
-    function toggleOutput(outputKey) {
-      fetch('/api/output/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ output: outputKey })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) updateStatus();
-      });
+    function updateConnStatus(online) {
+      const el = document.getElementById('connStatus');
+      if (online) {
+        el.textContent = '🟢 Online';
+        el.classList.remove('offline');
+      } else {
+        el.textContent = '🔴 Offline';
+        el.classList.add('offline');
+      }
     }
 
-    setInterval(updateStatus, 1000);
-    updateStatus();
-
-    // Logs
-    function updateLogs() {
-      fetch('/api/logs')
-        .then(res => res.json())
-        .then(data => {
-          const logsEl = document.getElementById('logs-view');
-          const lines = data.logs || [];
-          logsEl.textContent = lines.length ? lines.join('\n') : 'Sem logs';
-          logsEl.scrollTop = logsEl.scrollHeight;
-        });
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
 
-    setInterval(updateLogs, 2000);
-    updateLogs();
-
-    // Init
-    loadConfig();
+    // Atualizar a cada 500ms
+    setInterval(updateStatus, 500);
+    updateStatus(); // Primeira chamada
   </script>
 </body>
 </html>
