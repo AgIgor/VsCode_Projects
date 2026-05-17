@@ -1,0 +1,7 @@
+if(input1 and input2 and input3){
+    saida = true;
+
+}else{
+    saida = false;
+}
+
