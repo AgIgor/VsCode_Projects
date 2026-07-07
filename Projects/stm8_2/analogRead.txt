@@ -1,0 +1,40 @@
+#include <Arduino.h>
+
+// Exemplo: Leitura analógica do potenciômetro em PB4 (AIN4)
+// controlando a velocidade do blink do LED em PD4
+
+const uint8_t LED_PIN = PD4;          // LED no pino PD4
+const uint8_t POT_PIN = PB4;          // Potenciômetro analógico no pino PB4 (AIN4)
+const uint8_t BUTTON_PIN = PD7;       // Botão de entrada no pino PD7
+
+const uint16_t MIN_DELAY = 20;       // Delay mínimo em ms
+const uint16_t MAX_DELAY = 750;      // Delay máximo em ms
+
+void setup() {
+    // Configura LED como saída
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+    
+    // Configura potenciômetro como entrada analógica
+    pinMode(POT_PIN, INPUT);
+    
+    // Configura botão como entrada com pull-up
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+}
+
+void loop() {
+    // Lê o valor analógico do potenciômetro (0-1023)
+    uint16_t valorPotenciometro = analogRead(POT_PIN);
+    
+    // Mapeia o valor do potenciômetro para um delay entre MIN_DELAY e MAX_DELAY
+    // analogRead retorna 0-1023, mapeamos para 100-1000 ms
+    uint16_t delayBlink = map(valorPotenciometro, 0, 1023, MIN_DELAY, MAX_DELAY);
+    
+    // Liga o LED
+    digitalWrite(LED_PIN, HIGH);
+    delay(delayBlink);
+    
+    // Desliga o LED
+    digitalWrite(LED_PIN, LOW);
+    delay(delayBlink);
+}

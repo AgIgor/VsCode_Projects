@@ -1,0 +1,720 @@
+/*
+ * ESP32 Web Script Engine
+ * ============================================================
+ * Servidor HTTP com editor de scripts via browser.
+ *
+ * Linguagem suportada:
+ *   PINOUT <pino>           - configura pino como OUTPUT
+ *   PININ  <pino>           - configura pino como INPUT
+ *   SET    <pino> HIGH|LOW  - escreve nivel no pino
+ *   DELAY  <ms>             - aguarda milissegundos
+ *   VAR    <nome> <valor>   - declara/inicializa variavel inteira
+ *   INC    <nome>           - incrementa variavel
+ *   DEC    <nome>           - decrementa variavel
+ *   READ   <var> <pino>     - le digitalRead(pino) em variavel (0 ou 1)
+ *   REPEAT <n>              - inicia loop de N iteracoes
+ *   END                     - fecha bloco REPEAT
+ *   IF     <a> <op> <b>     - executa bloco se condicao verdadeira
+ *                              operadores: == != > < >= <=
+ *                              <a> e <b> podem ser variaveis ou numeros
+ *   ENDIF                   - fecha bloco IF
+ *   PRINT  <texto|variavel> - exibe mensagem no log
+ *   // ou #                 - comentario
+ *
+ * Acesse o IP exibido no Serial Monitor para usar o editor.
+ * Caso o WiFi falhe, um AP "ESP32-Script / 12345678" e criado.
+ */
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <vector>
+#include <map>
+
+// ============================================================
+// Configuracoes de rede — altere para sua rede
+// ============================================================
+const char* WIFI_SSID = "VIVOFIBRA-79D0";//"SUA_REDE_WIFI";
+const char* WIFI_PASS = "58331BB245";//"SUA_SENHA_WIFI";
+
+// ============================================================
+// Servidor HTTP
+// ============================================================
+WebServer server(80);
+
+// ============================================================
+// Estado do interpretador
+// ============================================================
+String          currentScript  = "";
+volatile bool   scriptRunning  = false;
+TaskHandle_t    scriptTaskHandle = NULL;
+String          serialLog      = "";
+SemaphoreHandle_t logMutex     = NULL;
+
+// ============================================================
+// Interface Web (armazenada em Flash / PROGMEM)
+// ============================================================
+const char HTML_PAGE[] PROGMEM = R"rawhtml(
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 Script Engine</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#1e1e2e;color:#cdd6f4;height:100vh;display:flex;flex-direction:column}
+header{background:#313244;padding:12px 20px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #89b4fa;flex-shrink:0}
+header h1{font-size:1.3rem;color:#89b4fa}
+.badge{padding:3px 12px;border-radius:12px;font-size:.75rem;font-weight:bold;background:#f38ba8;color:#1e1e2e}
+.badge.run{background:#a6e3a1}
+.main{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;min-height:0}
+.panel{background:#313244;border-radius:8px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ph{background:#45475a;padding:8px 14px;font-size:.82rem;font-weight:bold;color:#cba6f7;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.editor-wrap{display:flex;flex:1;min-height:0;overflow:hidden}
+.ln{background:#181825;padding:10px 6px;text-align:right;color:#585b70;font-family:'Courier New',monospace;font-size:13px;line-height:1.6;min-width:36px;user-select:none;overflow:hidden}
+textarea{flex:1;background:#181825;color:#cdd6f4;border:none;outline:none;padding:10px;font-family:'Courier New',monospace;font-size:13px;line-height:1.6;resize:none;tab-size:2}
+.ctrl{padding:10px 14px;background:#45475a;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+select{background:#313244;color:#cdd6f4;border:1px solid #585b70;border-radius:4px;padding:3px 6px;font-size:.78rem}
+button{padding:7px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:bold;transition:opacity .2s}
+button:hover{opacity:.8}
+.br{background:#a6e3a1;color:#1e1e2e}
+.bs{background:#f38ba8;color:#1e1e2e}
+.bc{background:#585b70;color:#cdd6f4}
+.log{flex:1;overflow-y:auto;padding:10px;font-family:'Courier New',monospace;font-size:12px;line-height:1.5;background:#181825;min-height:0}
+.log .e{color:#f38ba8}.log .i{color:#89dceb}.log .p{color:#a6e3a1}
+.ref{flex:1;overflow-y:auto;padding:12px;font-size:.8rem;min-height:0}
+.ref h3{color:#cba6f7;margin:10px 0 5px;font-size:.85rem}
+table{width:100%;border-collapse:collapse}
+td{padding:4px 8px;border-bottom:1px solid #45475a;vertical-align:top}
+td:first-child{color:#f9e2af;font-family:'Courier New',monospace;white-space:nowrap;padding-right:14px}
+td:last-child{color:#bac2de}
+@media(max-width:720px){.main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>&#9889; ESP32 Script Engine</h1>
+  <span id="badge" class="badge">PARADO</span>
+</header>
+<div class="main">
+  <!-- Painel Editor -->
+  <div class="panel">
+    <div class="ph">
+      <span>&#128221; Editor de Script</span>
+      <select id="ex">
+        <option value="">-- Exemplos --</option>
+        <option value="blink">Blink LED</option>
+        <option value="counter">Contador</option>
+        <option value="traffic">Semaforo</option>
+        <option value="pulse">Pulso temporizado</option>
+        <option value="sensor">Sensor/IF (entrada -&gt; saida)</option>
+      </select>
+    </div>
+    <div class="editor-wrap">
+      <div class="ln" id="ln">1</div>
+      <textarea id="ed" spellcheck="false" placeholder="// Digite seu script aqui..."></textarea>
+    </div>
+    <div class="ctrl">
+      <button class="br" onclick="runScript()">&#9654; Executar</button>
+      <button class="bs" onclick="stopScript()">&#9632; Parar</button>
+      <button class="bc" onclick="clearEd()">&#128465; Limpar</button>
+    </div>
+  </div>
+
+  <!-- Painel Log + Referencia -->
+  <div class="panel">
+    <div class="ph">
+      <span>&#128196; Log de Execucao</span>
+      <button class="bc" style="padding:2px 8px;font-size:.72rem" onclick="clearLog()">Limpar</button>
+    </div>
+    <div class="log" id="log">Aguardando execucao...<br></div>
+    <div class="ph" style="margin-top:4px">&#128218; Referencia da Linguagem</div>
+    <div class="ref">
+      <h3>Pinos</h3>
+      <table>
+        <tr><td>PINOUT &lt;pino&gt;</td><td>Define como saida (OUTPUT)</td></tr>
+        <tr><td>PININ &lt;pino&gt;</td><td>Define como entrada (INPUT)</td></tr>
+        <tr><td>SET &lt;pino&gt; HIGH|LOW</td><td>Liga ou desliga pino</td></tr>
+        <tr><td>READ &lt;var&gt; &lt;pino&gt;</td><td>Le pino digital em variavel (0 ou 1)</td></tr>
+      </table>
+      <h3>Tempo</h3>
+      <table>
+        <tr><td>DELAY &lt;ms&gt;</td><td>Pausa em milissegundos</td></tr>
+      </table>
+      <h3>Variaveis / Contadores</h3>
+      <table>
+        <tr><td>VAR &lt;nome&gt; &lt;val&gt;</td><td>Declara variavel inteira</td></tr>
+        <tr><td>INC &lt;nome&gt;</td><td>Incrementa +1</td></tr>
+        <tr><td>DEC &lt;nome&gt;</td><td>Decrementa -1</td></tr>
+        <tr><td>PRINT &lt;texto|var&gt;</td><td>Exibe no log</td></tr>
+      </table>
+      <h3>Controle de Fluxo</h3>
+      <table>
+        <tr><td>REPEAT &lt;n&gt;</td><td>Repete bloco N vezes</td></tr>
+        <tr><td>END</td><td>Fecha bloco REPEAT</td></tr>
+        <tr><td>IF &lt;a&gt; &lt;op&gt; &lt;b&gt;</td><td>Executa bloco se condicao for verdadeira</td></tr>
+        <tr><td></td><td>Operadores: == != &gt; &lt; &gt;= &lt;=</td></tr>
+        <tr><td>ENDIF</td><td>Fecha bloco IF</td></tr>
+      </table>
+      <h3>Comentarios</h3>
+      <table>
+        <tr><td>// texto</td><td>Linha ignorada</td></tr>
+        <tr><td># texto</td><td>Linha ignorada</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const EX = {
+  blink:`// Blink: pisca LED no pino 2 por 10 vezes
+PINOUT 2
+REPEAT 10
+  SET 2 HIGH
+  DELAY 500
+  SET 2 LOW
+  DELAY 500
+END
+PRINT Blink finalizado!`,
+
+  counter:`// Contador de 1 a 5 com display no log
+VAR i 0
+REPEAT 5
+  INC i
+  PRINT Contagem: i
+  DELAY 1000
+END
+PRINT Contador encerrado.`,
+
+  traffic:`// Semaforo: Verde->Amarelo->Vermelho
+PINOUT 18
+PINOUT 19
+PINOUT 21
+// Verde
+SET 18 HIGH
+SET 19 LOW
+SET 21 LOW
+DELAY 3000
+// Amarelo
+SET 18 LOW
+SET 19 HIGH
+DELAY 1000
+// Vermelho
+SET 19 LOW
+SET 21 HIGH
+DELAY 3000
+SET 21 LOW
+PRINT Ciclo do semaforo concluido`,
+
+  pulse:`// Liga 2s, desliga 1s — repete 5 ciclos
+PINOUT 2
+VAR ciclo 0
+REPEAT 5
+  INC ciclo
+  PRINT Ciclo: ciclo
+  SET 2 HIGH
+  DELAY 2000
+  SET 2 LOW
+  DELAY 1000
+END
+PRINT Sequencia finalizada`,
+
+  sensor:`// Le botao no pino 4, controla LED no pino 2
+PININ 4
+PINOUT 2
+VAR btn 0
+VAR leituras 0
+REPEAT 20
+  READ btn 4
+  INC leituras
+  PRINT Leitura: leituras valor: btn
+  IF btn == 1
+    SET 2 HIGH
+    PRINT LED ligado
+  ENDIF
+  IF btn == 0
+    SET 2 LOW
+    PRINT LED desligado
+  ENDIF
+  DELAY 500
+END
+SET 2 LOW
+PRINT Monitoramento encerrado`
+};
+
+const ed = document.getElementById('ed');
+const ln = document.getElementById('ln');
+const log = document.getElementById('log');
+
+// Script inicial
+ed.value = EX.blink;
+updateLn();
+
+document.getElementById('ex').addEventListener('change', function(){
+  if(this.value){ ed.value = EX[this.value]; updateLn(); this.value=''; }
+});
+ed.addEventListener('input', updateLn);
+ed.addEventListener('scroll', ()=> ln.scrollTop = ed.scrollTop);
+ed.addEventListener('keydown', e=>{
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const s=ed.selectionStart;
+    ed.value=ed.value.substring(0,s)+'  '+ed.value.substring(ed.selectionEnd);
+    ed.selectionStart=ed.selectionEnd=s+2;
+    updateLn();
+  }
+});
+
+function updateLn(){
+  const n = ed.value.split('\n').length;
+  ln.innerHTML = Array.from({length:n},(_,i)=>i+1).join('<br>');
+}
+function clearEd(){ ed.value=''; updateLn(); }
+function clearLog(){ log.innerHTML=''; }
+
+function addLog(txt,cls){
+  const d=document.createElement('div');
+  if(cls) d.className=cls;
+  d.textContent='['+new Date().toLocaleTimeString()+'] '+txt;
+  log.appendChild(d);
+  log.scrollTop=log.scrollHeight;
+}
+
+async function runScript(){
+  const script=ed.value;
+  if(!script.trim()){ addLog('Script vazio!','e'); return; }
+  addLog('Enviando script...','i');
+  try{
+    const r=await fetch('/run',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({script})
+    });
+    const d=await r.json();
+    addLog(d.message, d.ok?'i':'e');
+    if(d.ok) startPoll();
+  }catch(e){ addLog('Erro de conexao: '+e,'e'); }
+}
+
+async function stopScript(){
+  try{
+    const r=await fetch('/stop',{method:'POST'});
+    const d=await r.json();
+    addLog(d.message,'e');
+  }catch(e){ addLog('Erro: '+e,'e'); }
+}
+
+let poll=null, lastLen=0;
+function startPoll(){
+  if(poll) clearInterval(poll);
+  poll=setInterval(async()=>{
+    try{
+      const r=await fetch('/status');
+      const d=await r.json();
+      const b=document.getElementById('badge');
+      b.textContent=d.running?'EXECUTANDO':'PARADO';
+      b.className='badge'+(d.running?' run':'');
+      if(d.log && d.log.length>lastLen){
+        const novo=d.log.substring(lastLen);
+        lastLen=d.log.length;
+        novo.split('\n').filter(l=>l).forEach(l=>{
+          const cls=l.includes('[ERRO]')?'e':l.includes('[PRINT]')?'p':'';
+          addLog(l,cls);
+        });
+      }
+      if(!d.running){ clearInterval(poll); poll=null; lastLen=0; }
+    }catch(e){}
+  },500);
+}
+</script>
+</body>
+</html>
+)rawhtml";
+
+// ============================================================
+// Utilitarios
+// ============================================================
+void appendLog(const String& msg) {
+  if (logMutex && xSemaphoreTake(logMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    serialLog += msg + "\n";
+    if (serialLog.length() > 8192) {
+      serialLog = serialLog.substring(serialLog.length() - 8192);
+    }
+    xSemaphoreGive(logMutex);
+  }
+  Serial.println(msg);
+}
+
+String trimStr(const String& s) {
+  int a = 0, b = (int)s.length() - 1;
+  while (a <= b && isspace((unsigned char)s[a])) a++;
+  while (b >= a && isspace((unsigned char)s[b])) b--;
+  if (a > b) return "";
+  return s.substring(a, b + 1);
+}
+
+std::vector<String> tokenize(const String& line) {
+  std::vector<String> toks;
+  int i = 0, n = (int)line.length();
+  while (i < n) {
+    while (i < n && isspace((unsigned char)line[i])) i++;
+    if (i >= n) break;
+    int s = i;
+    while (i < n && !isspace((unsigned char)line[i])) i++;
+    toks.push_back(line.substring(s, i));
+  }
+  return toks;
+}
+
+// ============================================================
+// Interpretador de Script (roda em FreeRTOS task separada)
+// ============================================================
+struct LoopFrame { int startLine; int remaining; };
+
+void scriptTask(void* param) {
+  String* sp = (String*)param;
+  String script = *sp;
+  delete sp;
+
+  // Quebra script em linhas
+  std::vector<String> lines;
+  int start = 0;
+  for (int i = 0; i <= (int)script.length(); i++) {
+    if (i == (int)script.length() || script[i] == '\n') {
+      lines.push_back(trimStr(script.substring(start, i)));
+      start = i + 1;
+    }
+  }
+
+  std::map<String, int> vars;
+  std::vector<LoopFrame> stack;
+  int pc = 0;
+
+  appendLog("=== Iniciando execucao ===");
+
+  while (pc < (int)lines.size() && scriptRunning) {
+    String line = lines[pc];
+
+    // Ignora linhas vazias e comentarios
+    if (line.length() == 0 || line.startsWith("//") || line.startsWith("#")) {
+      pc++; continue;
+    }
+
+    auto tk = tokenize(line);
+    if (tk.empty()) { pc++; continue; }
+
+    String cmd = tk[0];
+    cmd.toUpperCase();
+
+    // Resolve token: variavel ou literal inteiro
+    auto resolveInt = [&](const String& t) -> int {
+      if (vars.count(t)) return vars.at(t);
+      return t.toInt();
+    };
+
+    if (cmd == "PINOUT") {
+      if (tk.size() >= 2) {
+        int pin = resolveInt(tk[1]);
+        pinMode(pin, OUTPUT);
+        appendLog("[PINOUT] pino " + String(pin) + " = OUTPUT");
+      }
+
+    } else if (cmd == "PININ") {
+      if (tk.size() >= 2) {
+        int pin = resolveInt(tk[1]);
+        pinMode(pin, INPUT);
+        appendLog("[PININ] pino " + String(pin) + " = INPUT");
+      }
+
+    } else if (cmd == "SET") {
+      if (tk.size() >= 3) {
+        int pin = resolveInt(tk[1]);
+        String v = tk[2]; v.toUpperCase();
+        int lvl = (v == "HIGH" || v == "1") ? HIGH : LOW;
+        digitalWrite(pin, lvl);
+        appendLog("[SET] pino " + String(pin) + " = " + (lvl ? "HIGH" : "LOW"));
+      }
+
+    } else if (cmd == "DELAY") {
+      if (tk.size() >= 2) {
+        int ms = resolveInt(tk[1]);
+        appendLog("[DELAY] " + String(ms) + " ms");
+        unsigned long t0 = millis();
+        while ((long)(millis() - t0) < ms && scriptRunning) {
+          vTaskDelay(pdMS_TO_TICKS(10));
+        }
+      }
+
+    } else if (cmd == "REPEAT") {
+      if (tk.size() >= 2) {
+        int count = resolveInt(tk[1]);
+        if (count <= 0) {
+          // Pula ate o END correspondente
+          int depth = 1; pc++;
+          while (pc < (int)lines.size() && depth > 0) {
+            auto t2 = tokenize(lines[pc]);
+            if (!t2.empty()) {
+              String c2 = t2[0]; c2.toUpperCase();
+              if (c2 == "REPEAT") depth++;
+              else if (c2 == "END") depth--;
+            }
+            if (depth > 0) pc++;
+          }
+        } else {
+          appendLog("[REPEAT] " + String(count) + " vezes");
+          stack.push_back({pc + 1, count - 1});
+        }
+      }
+
+    } else if (cmd == "END") {
+      if (!stack.empty()) {
+        LoopFrame& f = stack.back();
+        if (f.remaining > 0) {
+          f.remaining--;
+          pc = f.startLine;
+          continue; // nao incrementa pc
+        } else {
+          stack.pop_back();
+          appendLog("[END] loop encerrado");
+        }
+      }
+
+    } else if (cmd == "VAR") {
+      if (tk.size() >= 3) {
+        vars[tk[1]] = tk[2].toInt();
+        appendLog("[VAR] " + tk[1] + " = " + String(vars[tk[1]]));
+      }
+
+    } else if (cmd == "INC") {
+      if (tk.size() >= 2) {
+        vars[tk[1]]++;
+        appendLog("[INC] " + tk[1] + " = " + String(vars[tk[1]]));
+      }
+
+    } else if (cmd == "DEC") {
+      if (tk.size() >= 2) {
+        vars[tk[1]]--;
+        appendLog("[DEC] " + tk[1] + " = " + String(vars[tk[1]]));
+      }
+
+    } else if (cmd == "READ") {
+      // READ <var> <pino>  — salva digitalRead(pino) em variavel
+      if (tk.size() >= 3) {
+        int pin = resolveInt(tk[2]);
+        int val = digitalRead(pin);
+        vars[tk[1]] = val;
+        appendLog("[READ] pino " + String(pin) + " = " + String(val) + " -> " + tk[1]);
+      }
+
+    } else if (cmd == "IF") {
+      // IF <a> <op> <b>  — operadores: == != > < >= <=
+      bool cond = false;
+      if (tk.size() >= 4) {
+        int a = resolveInt(tk[1]);
+        String op = tk[2];
+        int b = resolveInt(tk[3]);
+        if      (op == "==") cond = (a == b);
+        else if (op == "!=") cond = (a != b);
+        else if (op == ">" ) cond = (a >  b);
+        else if (op == "<" ) cond = (a <  b);
+        else if (op == ">=") cond = (a >= b);
+        else if (op == "<=") cond = (a <= b);
+        appendLog("[IF] " + String(a) + " " + op + " " + String(b) + " -> " + (cond ? "VERDADEIRO" : "FALSO"));
+      }
+      if (!cond) {
+        // Pula ate o ENDIF correspondente (rastreia aninhamento)
+        int depth = 1; pc++;
+        while (pc < (int)lines.size() && depth > 0) {
+          auto t2 = tokenize(lines[pc]);
+          if (!t2.empty()) {
+            String c2 = t2[0]; c2.toUpperCase();
+            if (c2 == "IF")    depth++;
+            else if (c2 == "ENDIF") depth--;
+          }
+          if (depth > 0) pc++;
+        }
+      }
+
+    } else if (cmd == "ENDIF") {
+      // No-op: apenas marca fim do bloco IF
+
+    } else if (cmd == "PRINT") {
+      String msg = "";
+      for (size_t i = 1; i < tk.size(); i++) {
+        if (i > 1) msg += " ";
+        msg += vars.count(tk[i]) ? String(vars.at(tk[i])) : tk[i];
+      }
+      appendLog("[PRINT] " + msg);
+
+    } else {
+      appendLog("[ERRO] Comando desconhecido: " + line);
+    }
+
+    pc++;
+    vTaskDelay(pdMS_TO_TICKS(1)); // yield
+  }
+
+  appendLog("=== Execucao finalizada ===");
+  scriptRunning = false;
+  scriptTaskHandle = NULL;
+  vTaskDelete(NULL);
+}
+
+// ============================================================
+// Manipuladores HTTP
+// ============================================================
+
+// GET /  — pagina principal
+void handleRoot() {
+  server.send_P(200, "text/html", HTML_PAGE);
+}
+
+// POST /run  — recebe JSON {"script":"..."} e inicia execucao
+void handleRun() {
+  if (server.method() != HTTP_POST) {
+    server.send(405, "application/json", "{\"ok\":false,\"message\":\"Method Not Allowed\"}");
+    return;
+  }
+  if (scriptRunning) {
+    server.send(200, "application/json", "{\"ok\":false,\"message\":\"Script ja em execucao. Pare antes de enviar outro.\"}");
+    return;
+  }
+
+  // Extrai campo "script" do JSON manualmente (sem biblioteca extra)
+  String body = server.arg("plain");
+  int idx = body.indexOf("\"script\"");
+  if (idx < 0) {
+    server.send(400, "application/json", "{\"ok\":false,\"message\":\"Campo 'script' ausente\"}");
+    return;
+  }
+  idx = body.indexOf("\"", idx + 8); // abre aspas do valor
+  if (idx < 0) {
+    server.send(400, "application/json", "{\"ok\":false,\"message\":\"JSON invalido\"}");
+    return;
+  }
+  idx++; // pula aspas de abertura
+
+  String script = "";
+  bool esc = false;
+  while (idx < (int)body.length()) {
+    char c = body[idx];
+    if (esc) {
+      switch (c) {
+        case 'n': script += '\n'; break;
+        case 't': script += '\t'; break;
+        case 'r': script += '\r'; break;
+        default:  script += c;   break;
+      }
+      esc = false;
+    } else if (c == '\\') {
+      esc = true;
+    } else if (c == '"') {
+      break;
+    } else {
+      script += c;
+    }
+    idx++;
+  }
+
+  // Limpa log anterior
+  if (logMutex && xSemaphoreTake(logMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+    serialLog = "";
+    xSemaphoreGive(logMutex);
+  }
+
+  currentScript = script;
+  scriptRunning = true;
+
+  String* copy = new String(script);
+  xTaskCreate(scriptTask, "ScriptTask", 8192, copy, 1, &scriptTaskHandle);
+
+  server.send(200, "application/json", "{\"ok\":true,\"message\":\"Script iniciado!\"}");
+}
+
+// POST /stop  — interrompe execucao
+void handleStop() {
+  if (!scriptRunning) {
+    server.send(200, "application/json", "{\"ok\":false,\"message\":\"Nenhum script em execucao\"}");
+    return;
+  }
+  scriptRunning = false;
+  vTaskDelay(pdMS_TO_TICKS(150)); // aguarda task reagir ao flag
+  TaskHandle_t h = scriptTaskHandle;
+  if (h != NULL) {
+    scriptTaskHandle = NULL;
+    vTaskDelete(h);
+  }
+  appendLog("=== Script interrompido pelo usuario ===");
+  server.send(200, "application/json", "{\"ok\":true,\"message\":\"Script interrompido\"}");
+}
+
+// GET /status  — retorna estado + log para polling
+void handleStatus() {
+  String log_copy;
+  if (logMutex && xSemaphoreTake(logMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    log_copy = serialLog;
+    xSemaphoreGive(logMutex);
+  }
+
+  // Escapa o log para JSON
+  String escaped;
+  escaped.reserve(log_copy.length() + 32);
+  for (char c : log_copy) {
+    switch (c) {
+      case '"':  escaped += "\\\""; break;
+      case '\\': escaped += "\\\\"; break;
+      case '\n': escaped += "\\n";  break;
+      case '\r': escaped += "\\r";  break;
+      default:   escaped += c;      break;
+    }
+  }
+
+  String json = "{\"running\":";
+  json += scriptRunning ? "true" : "false";
+  json += ",\"log\":\"";
+  json += escaped;
+  json += "\"}";
+
+  server.send(200, "application/json", json);
+}
+
+// ============================================================
+// Setup & Loop
+// ============================================================
+void setup() {
+  Serial.begin(115200);
+
+  logMutex = xSemaphoreCreateMutex();
+
+  // Tenta conectar ao WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.print("Conectando ao WiFi");
+  for (int i = 0; i < 30 && WiFi.status() != WL_CONNECTED; i++) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConectado! Acesse: http://" + WiFi.localIP().toString());
+  } else {
+    // Cria ponto de acesso proprio como fallback
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("ESP32-Script", "12345678");
+    Serial.println("\nWiFi falhou. AP criado.");
+    Serial.println("SSID: ESP32-Script | Senha: 12345678");
+    Serial.println("Acesse: http://" + WiFi.softAPIP().toString());
+  }
+
+  server.on("/",       HTTP_GET,  handleRoot);
+  server.on("/run",    HTTP_POST, handleRun);
+  server.on("/stop",   HTTP_POST, handleStop);
+  server.on("/status", HTTP_GET,  handleStatus);
+  server.begin();
+
+  Serial.println("Servidor HTTP iniciado na porta 80.");
+}
+
+void loop() {
+  server.handleClient();
+}

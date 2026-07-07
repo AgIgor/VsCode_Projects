@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ESP32 YAML Config</title>
+  <style>
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #e2e8f0;
+      --muted:   #94a3b8;
+      --accent:  #f43f5e;
+      --green:   #10b981;
+      --blue:    #3b82f6;
+      --yellow:  #f59e0b;
+      --purple:  #a78bfa;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+    nav h1 { font-size: 1.1rem; color: var(--accent); font-weight: 700; }
+    nav span { color: var(--muted); font-size: .85rem; }
+    .nav-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+    .layout-full { grid-column: 1 / -1; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .card-head { padding: 11px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .card-head h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); flex: 1; }
+    .card-body { padding: 14px 16px; }
+
+    textarea {
+      width: 100%; height: 380px; background: #0d1117; color: #a8ff78;
+      border: 1px solid var(--border); border-radius: 6px; padding: 12px;
+      font-family: 'Cascadia Code','Fira Code','Courier New',monospace;
+      font-size: 13px; line-height: 1.75; resize: vertical; outline: none; tab-size: 2;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 600; transition: opacity .15s; white-space: nowrap; }
+    .btn:hover { opacity: .85; } .btn:active { opacity: .7; }
+    .btn-red   { background: var(--accent); color: #fff; }
+    .btn-blue  { background: var(--blue);   color: #fff; }
+    .btn-muted { background: var(--border); color: var(--text); }
+    .btn-sm    { padding: 5px 10px; font-size: .78rem; }
+    .btn-xs    { padding: 3px 7px;  font-size: .72rem; }
+    .toolbar   { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+    .msg { font-size: .8rem; padding: 4px 10px; border-radius: 5px; }
+    .msg-ok  { background: #064e3b; color: var(--green); }
+    .msg-err { background: #450a0a; color: #f87171; }
+
+    .help { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; font-size: .8rem; color: var(--muted); margin-top: 10px; line-height: 1.8; display: none; }
+    .help code { color: #a8ff78; font-family: monospace; }
+    .help i    { color: var(--blue); }
+
+    .gpio-wrap { overflow-x: auto; }
+    table  { width: 100%; border-collapse: collapse; }
+    th { font-size: .72rem; text-transform: uppercase; color: var(--muted); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    td { padding: 8px 10px; border-bottom: 1px solid #1e293b66; font-size: .87rem; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.04); }
+
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: .72rem; font-weight: 600; }
+    .chip-out   { background: #1e3a5f; color: var(--blue); }
+    .chip-in    { background: #064e3b; color: var(--green); }
+    .chip-high  { background: #431407; color: var(--yellow); }
+    .chip-low   { background: #1e293b; color: var(--muted); }
+    .chip-rule  { background: #2d1b5e; color: var(--purple); }
+    .chip-ok    { background: #064e3b; color: var(--green); }
+
+    .pin-badge { background: #1e3a5f; color: var(--blue); font-family: monospace; font-size: .8rem; padding: 2px 7px; border-radius: 4px; }
+
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: var(--border); border-radius: 12px; cursor: pointer; transition: background .2s; }
+    .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform .2s; }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    .footer-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .ts { color: var(--muted); font-size: .78rem; }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+    .dot-green { background: var(--green); animation: pulse 2s infinite; }
+    .dot-gray  { background: var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .empty-state { color: var(--muted); text-align: center; padding: 40px 20px; font-size: .9rem; }
+
+    /* Counter badge */
+    .cnt { background: #1a2a40; color: #63b3ed; font-family: monospace; font-size: .78rem; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+
+    /* Delay badge */
+    .dly { color: var(--yellow); font-size: .72rem; margin-left: 4px; opacity: .8; }
+
+    /* Pending indicator */
+    .pending-badge { background: #2d2008; color: var(--yellow); font-size: .72rem; padding: 1px 6px; border-radius: 4px; margin-left: 4px; animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Rule active dot */
+    .rule-active   { color: var(--green);  }
+    .rule-inactive { color: var(--muted);  }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h1>&#9889; ESP32 YAML Config</h1>
+  <span>GPIO + automation via YAML</span>
+  <div class="nav-right"><span class="ts" id="navTs"></span></div>
+</nav>
+
+<div class="layout">
+
+  <!-- ── YAML Editor ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head"><h2>&#128221; Configuration YAML</h2></div>
+    <div class="card-body">
+      <textarea id="editor" spellcheck="false" autocorrect="off" placeholder="Loading..."></textarea>
+      <div class="toolbar">
+        <button class="btn btn-red"   onclick="saveConfig()">&#128190; Save &amp; Apply</button>
+        <button class="btn btn-muted" onclick="loadConfig()">&#8635; Reload</button>
+        <button class="btn btn-muted btn-sm" onclick="toggleHelp()">&#128216; Help</button>
+        <span id="saveMsg"></span>
+      </div>
+      <div id="helpBox" class="help">
+        <b>YAML reference:</b><br><br>
+        <code>gpio:</code><br>
+        &nbsp;&nbsp;<code>- pin: 2</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>name: LED</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>mode: output</code> &nbsp;<i># output | input | input_pullup | input_pulldown</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>state: low</code> &nbsp;&nbsp;&nbsp;<i># low | high  (outputs only)</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>delay_on_ms: 500</code> &nbsp;<i># ms before turning ON</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>delay_off_ms: 200</code> <i># ms before turning OFF</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>counter:</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>edge: falling</code> <i># falling | rising | change</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>debounce_ms: 50</code><br>
+        <br>
+        <code>rules:</code><br>
+        &nbsp;&nbsp;<code>- name: MyRule</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>trigger: change</code> &nbsp;<i># change (default) | always</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>if:</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>pin: 4</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>state: low</code> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<i># OR counter_gte/lte/eq: N</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>then:</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>pin: 2</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>action: high</code> &nbsp;&nbsp;&nbsp;&nbsp;<i># high | low | toggle</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>reset_counter: true</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>else:</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>pin: 2</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>action: low</code><br>
+        <br>
+        <i>&#9888; Use <b>high</b>/<b>low</b> instead of on/off (YAML booleans!).<br>
+        WiFi changes require a device restart.</i>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GPIO Status ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head"><h2>&#128268; GPIO Status</h2></div>
+    <div class="card-body">
+      <div id="gpioContent" class="gpio-wrap"><p class="empty-state">Loading&#8230;</p></div>
+      <div class="footer-row">
+        <button class="btn btn-muted btn-sm" onclick="refreshGpio()">&#8635; Refresh</button>
+        <button class="btn btn-muted btn-sm" onclick="restartDevice()" style="color:#f87171">&#128260; Restart</button>
+        <span class="ts" id="gpioTs"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Automation Rules ─────────────────────────────────── -->
+  <div class="card layout-full">
+    <div class="card-head">
+      <h2>&#9889; Automation Rules</h2>
+      <span class="ts" id="ruleCount"></span>
+    </div>
+    <div class="card-body">
+      <div id="rulesContent" class="gpio-wrap"><p class="empty-state">No rules configured</p></div>
+    </div>
+  </div>
+
+</div><!-- layout -->
+
+<script>
+const modeLabel = m => ({ output:'Output', input:'Input', input_pullup:'Input\u2191', input_pulldown:'Input\u2193' }[m] || m);
+
+// ── Status message ────────────────────────────────────────────────────────────
+function setMsg(txt, ok) {
+  const el = document.getElementById('saveMsg');
+  el.textContent = txt;
+  el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+  if (ok) setTimeout(() => { el.textContent = ''; el.className = ''; }, 6000);
+}
+
+function toggleHelp() {
+  const b = document.getElementById('helpBox');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+// ── Load / Save config ────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/config');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    document.getElementById('editor').value = await r.text();
+  } catch(e) { setMsg('\u26a0 ' + e.message, false); }
+}
+
+async function saveConfig() {
+  const yaml = document.getElementById('editor').value.trim();
+  if (!yaml) { setMsg('\u26a0 Config is empty', false); return; }
+  try {
+    const r = await fetch('/config', { method:'POST', headers:{'Content-Type':'text/plain'}, body: yaml });
+    const txt = await r.text();
+    setMsg((r.ok ? '\u2713 ' : '\u2717 ') + txt, r.ok);
+    if (r.ok) { setTimeout(refreshGpio, 600); setTimeout(refreshRules, 800); }
+  } catch(e) { setMsg('\u2717 ' + e.message, false); }
+}
+
+// ── GPIO state ────────────────────────────────────────────────────────────────
+async function refreshGpio() {
+  try {
+    const r = await fetch('/gpio/state');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    renderGpio(await r.json());
+    document.getElementById('gpioTs').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('navTs').textContent  = new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('gpioContent').innerHTML = '<p class="empty-state" style="color:#f87171">Error: ' + e.message + '</p>';
+  }
+}
+
+function renderGpio(pins) {
+  if (!pins || pins.length === 0) {
+    document.getElementById('gpioContent').innerHTML = '<p class="empty-state">No GPIO pins configured</p>';
+    return;
+  }
+  const rows = pins.map(p => {
+    const isOut = p.mode === 'output';
+    const mClass = isOut ? 'chip-out' : 'chip-in';
+    const sClass = p.state ? 'chip-high' : 'chip-low';
+
+    // Counter badge
+    const cntBadge = (p.counter !== undefined)
+      ? `<span class="cnt" title="Pulse count">&#8635; ${p.counter}</span>`
+      : '';
+
+    // Delay badge
+    const dlyParts = [];
+    if (p.delay_on_ms)  dlyParts.push(`\u2191${p.delay_on_ms}ms`);
+    if (p.delay_off_ms) dlyParts.push(`\u2193${p.delay_off_ms}ms`);
+    const dlyBadge = dlyParts.length ? `<span class="dly" title="Delays">\u23F1 ${dlyParts.join(' ')}</span>` : '';
+
+    // Pending badge
+    const pendBadge = (p.pending_ms !== undefined && p.pending_ms > 0)
+      ? `<span class="pending-badge">\u23F3 ${p.pending_state ? 'ON' : 'OFF'} in ${p.pending_ms}ms</span>`
+      : '';
+
+    // Control
+    const toggleCtrl = isOut
+      ? `<label class="toggle"><input type="checkbox" ${p.state ? 'checked' : ''} onchange="togglePin(${p.pin},this)"><span class="slider"></span></label>`
+      : `<span class="dot ${p.state ? 'dot-green' : 'dot-gray'}"></span>`;
+
+    const resetBtn = (p.counter !== undefined)
+      ? ` <button class="btn btn-muted btn-xs" onclick="resetCounter(${p.pin})" title="Reset counter">&#8635;0</button>`
+      : '';
+
+    return `<tr>
+      <td><span class="pin-badge">${p.pin}</span></td>
+      <td>${p.name}${dlyBadge}</td>
+      <td><span class="chip ${mClass}">${modeLabel(p.mode)}</span></td>
+      <td><span class="chip ${sClass}">${p.state ? 'HIGH' : 'LOW'}</span>${cntBadge}${pendBadge}</td>
+      <td>${toggleCtrl}${resetBtn}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('gpioContent').innerHTML =
+    `<table><thead><tr><th>Pin</th><th>Name</th><th>Mode</th><th>State / Counter</th><th>Control</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── Toggle / reset ────────────────────────────────────────────────────────────
+async function togglePin(pin, el) {
+  try {
+    const r = await fetch('/gpio/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pin}) });
+    if (!r.ok) el.checked = !el.checked;
+    else setTimeout(refreshGpio, 200);
+  } catch(e) { el.checked = !el.checked; }
+}
+
+async function resetCounter(pin) {
+  try {
+    await fetch('/counter/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pin}) });
+    setTimeout(refreshGpio, 150);
+  } catch(e) { console.error(e); }
+}
+
+// ── Automation Rules ──────────────────────────────────────────────────────────
+async function refreshRules() {
+  try {
+    const r = await fetch('/rules');
+    if (!r.ok) return;
+    renderRules(await r.json());
+  } catch(e) { /* rules endpoint optional */ }
+}
+
+function renderRules(rules) {
+  const cnt = document.getElementById('ruleCount');
+  if (!rules || rules.length === 0) {
+    document.getElementById('rulesContent').innerHTML = '<p class="empty-state">No rules configured — add a <code>rules:</code> section to the YAML</p>';
+    cnt.textContent = '';
+    return;
+  }
+  cnt.textContent = rules.length + ' rule(s)';
+
+  const condLabel = c => {
+    if (c.type === 'state')       return `pin ${c.pin} = ${c.value ? 'HIGH' : 'LOW'}`;
+    if (c.type === 'counter_gte') return `pin ${c.pin} count \u2265 ${c.value}`;
+    if (c.type === 'counter_lte') return `pin ${c.pin} count \u2264 ${c.value}`;
+    if (c.type === 'counter_eq')  return `pin ${c.pin} count = ${c.value}`;
+    return '?';
+  };
+
+  const actLabel = a => a ? `pin ${a.pin} \u2192 <b>${a.action}</b>${a.reset_counter ? ' + reset&#8635;' : ''}` : '\u2014';
+
+  const rows = rules.map(rule => {
+    const active = rule.active;
+    return `<tr>
+      <td><span class="${active ? 'rule-active' : 'rule-inactive'}" title="${active ? 'Condition TRUE' : 'Condition FALSE'}">&#9679;</span></td>
+      <td><b>${rule.name}</b></td>
+      <td><span class="chip chip-rule">${rule.trigger}</span></td>
+      <td>${condLabel(rule.if)}</td>
+      <td>${actLabel(rule.then)}</td>
+      <td>${rule.else ? actLabel(rule.else) : '<span style="color:var(--muted)">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rulesContent').innerHTML =
+    `<table><thead><tr><th>&#9679;</th><th>Name</th><th>Trigger</th><th>If</th><th>Then</th><th>Else</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── Restart ───────────────────────────────────────────────────────────────────
+async function restartDevice() {
+  if (!confirm('Restart the ESP32?\n\nWiFi changes take effect after restart.')) return;
+  try {
+    await fetch('/restart', { method:'POST' });
+    setMsg('\u21ba Restarting\u2026 reconnect in a few seconds.', true);
+  } catch(e) { setMsg('\u2717 ' + e.message, false); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadConfig();
+refreshGpio();
+refreshRules();
+setInterval(refreshGpio,  3000);
+setInterval(refreshRules, 5000);
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ESP32 YAML Config</title>
+  <style>
+    :root {
+      --bg:      #0f172a;
+      --surface: #1e293b;
+      --border:  #334155;
+      --text:    #e2e8f0;
+      --muted:   #94a3b8;
+      --accent:  #f43f5e;
+      --green:   #10b981;
+      --blue:    #3b82f6;
+      --yellow:  #f59e0b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Nav ── */
+    nav {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 20px; display: flex; align-items: center; gap: 12px;
+    }
+    nav h1 { font-size: 1.1rem; color: var(--accent); font-weight: 700; }
+    nav span { color: var(--muted); font-size: 0.85rem; }
+    .nav-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto;
+    }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ── Card ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .card-head {
+      padding: 11px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-head h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .card-body { padding: 14px 16px; }
+
+    /* ── Editor ── */
+    textarea {
+      width: 100%; height: 380px;
+      background: #0d1117; color: #a8ff78;
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px; font-family: 'Cascadia Code','Fira Code','Courier New',monospace;
+      font-size: 13px; line-height: 1.75; resize: vertical; outline: none; tab-size: 2;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 8px 16px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: opacity .15s; white-space: nowrap;
+    }
+    .btn:hover  { opacity: .85; }
+    .btn:active { opacity: .70; }
+    .btn-red    { background: var(--accent); color: #fff; }
+    .btn-blue   { background: var(--blue);   color: #fff; }
+    .btn-muted  { background: var(--border); color: var(--text); }
+    .btn-sm     { padding: 5px 10px; font-size: 0.78rem; }
+    .toolbar    { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+    /* ── Status message ── */
+    .msg { font-size: 0.8rem; padding: 4px 10px; border-radius: 5px; }
+    .msg-ok  { background: #064e3b; color: var(--green); }
+    .msg-err { background: #450a0a; color: #f87171; }
+
+    /* ── Help box ── */
+    .help {
+      background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px 14px; font-size: 0.8rem; color: var(--muted);
+      margin-top: 10px; line-height: 1.8; display: none;
+    }
+    .help code { color: #a8ff78; font-family: monospace; }
+    .help i    { color: var(--blue); }
+
+    /* ── GPIO table ── */
+    .gpio-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 0.72rem; text-transform: uppercase; color: var(--muted);
+      padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 9px 10px; border-bottom: 1px solid #1e293b66; font-size: 0.87rem; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.04); }
+
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: .72rem; font-weight: 600; }
+    .chip-out  { background: #1e3a5f; color: var(--blue); }
+    .chip-in   { background: #064e3b; color: var(--green); }
+    .chip-high { background: #431407; color: var(--yellow); }
+    .chip-low  { background: #1e293b; color: var(--muted); }
+
+    .pin-badge {
+      background: #1e3a5f; color: var(--blue);
+      font-family: monospace; font-size: .8rem; padding: 2px 7px; border-radius: 4px;
+    }
+
+    /* ── Toggle switch ── */
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: var(--border);
+      border-radius: 12px; cursor: pointer; transition: background .2s;
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; left: 3px; bottom: 3px;
+      background: #fff; border-radius: 50%; transition: transform .2s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    /* ── Footer row ── */
+    .footer-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .ts { color: var(--muted); font-size: .78rem; }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+    .dot-green { background: var(--green); animation: pulse 2s infinite; }
+    .dot-gray  { background: var(--muted); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .empty-state { color: var(--muted); text-align: center; padding: 40px 20px; font-size: .9rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h1>&#9889; ESP32 YAML Config</h1>
+  <span>Configure GPIO pins via YAML</span>
+  <div class="nav-right">
+    <span id="wifiInfo" class="ts"></span>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- ── YAML Editor ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <h2>&#128221; Configuration YAML</h2>
+    </div>
+    <div class="card-body">
+      <textarea id="editor" spellcheck="false" autocorrect="off"
+        placeholder="Loading config..."></textarea>
+
+      <div class="toolbar">
+        <button class="btn btn-red"   onclick="saveConfig()">&#128190; Save &amp; Apply</button>
+        <button class="btn btn-muted" onclick="loadConfig()">&#8635; Reload</button>
+        <button class="btn btn-muted btn-sm" onclick="toggleHelp()">&#128216; Help</button>
+        <span id="saveMsg"></span>
+      </div>
+
+      <div id="helpBox" class="help">
+        <b>YAML format reference:</b><br><br>
+        <code>wifi:</code><br>
+        &nbsp;&nbsp;<code>mode: ap</code> &nbsp;&nbsp;&nbsp;<i># ap | station</i><br>
+        &nbsp;&nbsp;<code>ssid: MyNetwork</code><br>
+        &nbsp;&nbsp;<code>password: secret</code><br>
+        <br>
+        <code>gpio:</code><br>
+        &nbsp;&nbsp;<code>- pin: 2</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>name: LED</code><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>mode: output</code> &nbsp;<i># output | input | input_pullup | input_pulldown</i><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<code>state: low</code> &nbsp;&nbsp;&nbsp;<i># low | high &nbsp;(output only)</i><br>
+        <br>
+        <i>WiFi changes are applied after restarting the device.</i>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GPIO Status ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-head">
+      <h2>&#128268; GPIO Status</h2>
+    </div>
+    <div class="card-body">
+      <div id="gpioContent" class="gpio-wrap">
+        <p class="empty-state">Loading&#8230;</p>
+      </div>
+      <div class="footer-row">
+        <button class="btn btn-muted btn-sm" onclick="refreshGpio()">&#8635; Refresh</button>
+        <button class="btn btn-muted btn-sm" onclick="restartDevice()" style="color:#f87171">
+          &#128260; Restart ESP32
+        </button>
+        <span class="ts" id="ts"></span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- layout -->
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function setMsg(txt, ok) {
+  const el = document.getElementById('saveMsg');
+  el.textContent = txt;
+  el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+  if (ok) setTimeout(() => { el.textContent = ''; el.className = ''; }, 6000);
+}
+
+function toggleHelp() {
+  const b = document.getElementById('helpBox');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+}
+
+const modeLabel = m => ({ output:'Output', input:'Input',
+  input_pullup:'Input \u2191', input_pulldown:'Input \u2193' }[m] || m);
+
+// ── Load config from device ───────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/config');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    document.getElementById('editor').value = await r.text();
+  } catch(e) {
+    setMsg('\u26a0 Load failed: ' + e.message, false);
+  }
+}
+
+// ── Save config to device ─────────────────────────────────────────────────────
+async function saveConfig() {
+  const yaml = document.getElementById('editor').value.trim();
+  if (!yaml) { setMsg('\u26a0 Config is empty', false); return; }
+  try {
+    const r = await fetch('/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: yaml
+    });
+    const txt = await r.text();
+    setMsg((r.ok ? '\u2713 ' : '\u2717 ') + txt, r.ok);
+    if (r.ok) setTimeout(refreshGpio, 800);
+  } catch(e) {
+    setMsg('\u2717 ' + e.message, false);
+  }
+}
+
+// ── Refresh GPIO status ───────────────────────────────────────────────────────
+async function refreshGpio() {
+  try {
+    const r = await fetch('/gpio/state');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    renderGpio(await r.json());
+    document.getElementById('ts').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('gpioContent').innerHTML =
+      '<p class="empty-state" style="color:#f87171">Error: ' + e.message + '</p>';
+  }
+}
+
+// ── Render GPIO table ─────────────────────────────────────────────────────────
+function renderGpio(pins) {
+  if (!pins || pins.length === 0) {
+    document.getElementById('gpioContent').innerHTML =
+      '<p class="empty-state">No GPIO pins configured</p>';
+    return;
+  }
+
+  const rows = pins.map(p => {
+    const isOut = p.mode === 'output';
+    const mClass = isOut ? 'chip-out' : 'chip-in';
+    const sClass = p.state ? 'chip-high' : 'chip-low';
+
+    const ctrl = isOut
+      ? `<label class="toggle" title="Toggle">
+           <input type="checkbox" ${p.state ? 'checked' : ''}
+             onchange="togglePin(${p.pin}, this)">
+           <span class="slider"></span>
+         </label>`
+      : `<span class="dot ${p.state ? 'dot-green' : 'dot-gray'}"></span>
+         <span style="font-size:.8rem;color:var(--muted)">${p.state ? 'HIGH' : 'LOW'}</span>`;
+
+    return `<tr>
+      <td><span class="pin-badge">${p.pin}</span></td>
+      <td>${p.name}</td>
+      <td><span class="chip ${mClass}">${modeLabel(p.mode)}</span></td>
+      <td><span class="chip ${sClass}">${p.state ? 'HIGH' : 'LOW'}</span></td>
+      <td>${ctrl}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('gpioContent').innerHTML =
+    `<table>
+       <thead><tr>
+         <th>Pin</th><th>Name</th><th>Mode</th><th>State</th><th>Control</th>
+       </tr></thead>
+       <tbody>${rows}</tbody>
+     </table>`;
+}
+
+// ── Toggle output pin ─────────────────────────────────────────────────────────
+async function togglePin(pin, el) {
+  try {
+    const r = await fetch('/gpio/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    if (!r.ok) el.checked = !el.checked;   // revert on error
+    else setTimeout(refreshGpio, 200);
+  } catch(e) {
+    el.checked = !el.checked;
+  }
+}
+
+// ── Restart device ────────────────────────────────────────────────────────────
+async function restartDevice() {
+  if (!confirm('Restart the ESP32?\n\nWiFi changes in the config will take effect after restart.')) return;
+  try {
+    await fetch('/restart', { method: 'POST' });
+    setMsg('\u21ba Restarting\u2026 reconnect in a few seconds.', true);
+    document.getElementById('wifiInfo').textContent = 'Restarting...';
+  } catch(e) {
+    setMsg('\u2717 ' + e.message, false);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadConfig();
+refreshGpio();
+setInterval(refreshGpio, 4000);
+</script>
+</body>
+</html>

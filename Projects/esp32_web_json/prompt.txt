@@ -1,0 +1,725 @@
+
+# Projeto: ESP32 Automation Runtime (Máquina Virtual + Linguagem Script)
+
+Você será um arquiteto de software embarcado especialista em ESP32, C++, PlatformIO, FreeRTOS, compiladores e máquinas virtuais.
+
+Seu objetivo é desenvolver um firmware profissional para ESP32 que execute scripts de automação sem necessidade de recompilar o firmware.
+
+## Objetivo
+
+Criar um firmware genérico para ESP32 capaz de interpretar uma linguagem própria semelhante à lógica de PLC/CLP, permitindo que toda a programação seja feita por uma interface Web.
+
+O firmware nunca deverá ser alterado após pronto. Apenas os scripts serão modificados.
+
+O sistema deve ser totalmente modular.
+
+---
+
+# Tecnologias
+
+* ESP32
+* Framework Arduino
+* PlatformIO
+* LittleFS
+* ArduinoJson
+* AsyncWebServer
+* WebSocket
+* FreeRTOS
+* C++17
+
+Nunca utilizar delay().
+
+Todo o sistema deverá ser baseado em millis() e tarefas não bloqueantes.
+
+---
+
+# Arquitetura
+
+Criar uma arquitetura em camadas.
+
+```
+Interface Web
+
+↓
+
+Editor de Script
+
+↓
+
+Parser
+
+↓
+
+Compilador
+
+↓
+
+Bytecode
+
+↓
+
+Máquina Virtual (VM)
+
+↓
+
+Scheduler
+
+↓
+
+Drivers
+
+↓
+
+GPIO
+PWM
+ADC
+UART
+I2C
+SPI
+CAN
+MQTT
+WiFi
+Bluetooth
+```
+
+Cada camada deve ser independente.
+
+---
+
+# Estrutura do projeto
+
+Organizar o projeto da seguinte forma:
+
+```
+src/
+
+main.cpp
+
+vm/
+    vm.cpp
+    vm.h
+
+compiler/
+    lexer.cpp
+    lexer.h
+    parser.cpp
+    parser.h
+    compiler.cpp
+    compiler.h
+
+scheduler/
+    scheduler.cpp
+    scheduler.h
+
+events/
+    events.cpp
+    events.h
+
+timers/
+    timers.cpp
+    timers.h
+
+counters/
+    counters.cpp
+    counters.h
+
+variables/
+    variables.cpp
+    variables.h
+
+gpio/
+    gpio.cpp
+    gpio.h
+
+storage/
+    storage.cpp
+    storage.h
+
+web/
+    webserver.cpp
+    webserver.h
+
+mqtt/
+    mqtt.cpp
+    mqtt.h
+
+ota/
+    ota.cpp
+    ota.h
+
+utils/
+```
+
+Todo módulo deve possuir baixo acoplamento.
+
+---
+
+# Máquina Virtual
+
+A linguagem não deverá ser interpretada diretamente.
+
+Ela será compilada para bytecode.
+
+A VM deverá executar instruções sequencialmente usando um Program Counter (PC).
+
+Cada script deve possuir:
+
+```
+Program Counter
+
+Estado
+
+Stack
+
+Variáveis locais
+
+Temporizadores
+
+Contadores
+
+Flags
+
+Estado WAIT
+```
+
+A VM deverá permitir múltiplos scripts executando simultaneamente.
+
+---
+
+# Scheduler
+
+Criar um scheduler cooperativo.
+
+A ordem deverá ser:
+
+```
+Atualizar Entradas
+
+↓
+
+Gerar Eventos
+
+↓
+
+Atualizar Timers
+
+↓
+
+Atualizar Contadores
+
+↓
+
+Executar VM
+
+↓
+
+Atualizar Saídas
+
+↓
+
+Enviar MQTT
+
+↓
+
+Atualizar Interface Web
+```
+
+Nenhuma etapa poderá bloquear o sistema.
+
+---
+
+# Sistema de Eventos
+
+Implementar eventos:
+
+```
+ON RISING
+
+ON FALLING
+
+ON CHANGE
+
+ON LONGPRESS
+
+ON DOUBLECLICK
+
+ON HOLD
+
+ON TIMER
+
+ON BOOT
+
+ON LOOP
+
+ON WIFI_CONNECTED
+
+ON WIFI_DISCONNECTED
+
+ON MQTT_CONNECTED
+
+ON MQTT_MESSAGE
+
+ON SERIAL_DATA
+```
+
+---
+
+# Temporizadores
+
+Implementar temporizadores independentes.
+
+Cada timer deverá possuir:
+
+```
+ID
+
+Running
+
+Paused
+
+Start
+
+Timeout
+
+Repeat
+
+Elapsed
+```
+
+Comandos:
+
+```
+START
+
+STOP
+
+PAUSE
+
+RESUME
+
+RESET
+```
+
+---
+
+# Contadores
+
+Implementar contadores.
+
+Comandos:
+
+```
+++
+
+--
+
+SET
+
+RESET
+
+LIMIT
+
+COMPARE
+```
+
+---
+
+# Flags
+
+Implementar flags booleanas.
+
+```
+SET
+
+CLEAR
+
+TOGGLE
+
+TEST
+```
+
+---
+
+# Variáveis
+
+Criar suporte a:
+
+```
+bool
+
+int
+
+float
+
+string
+```
+
+Também criar variáveis de sistema:
+
+```
+RPM
+
+TPS
+
+MAP
+
+ECT
+
+IAT
+
+BATTERY
+
+IGNITION
+
+DOOR
+
+BRAKE
+
+LDR
+
+TIME
+
+DATE
+
+MILLIS
+```
+
+---
+
+# GPIO
+
+Suportar:
+
+Entradas digitais
+
+Saídas digitais
+
+PWM
+
+ADC
+
+Servo
+
+Pulse Counter
+
+Interrupts
+
+---
+
+# Linguagem
+
+Criar uma linguagem semelhante a um PLC.
+
+Exemplo:
+
+```
+ON RISING PORTA
+
+OUTPUT LUZ ON
+
+WAIT 30000
+
+OUTPUT LUZ OFF
+```
+
+Outro exemplo:
+
+```
+IF RPM > 3000
+
+OUTPUT FAN ON
+
+ENDIF
+```
+
+Outro exemplo:
+
+```
+LOOP 5
+
+OUTPUT LED TOGGLE
+
+WAIT 200
+
+ENDLOOP
+```
+
+Outro exemplo:
+
+```
+FUNCTION Pisca
+
+OUTPUT LED ON
+
+WAIT 200
+
+OUTPUT LED OFF
+
+WAIT 200
+
+ENDFUNCTION
+```
+
+---
+
+# Recursos da linguagem
+
+Implementar:
+
+IF
+
+ELSE
+
+ENDIF
+
+WHILE
+
+ENDWHILE
+
+LOOP
+
+ENDLOOP
+
+FOR
+
+ENDFOR
+
+BREAK
+
+CONTINUE
+
+FUNCTION
+
+RETURN
+
+CALL
+
+WAIT
+
+ON
+
+EVENT
+
+TIMER
+
+COUNTER
+
+FLAG
+
+VAR
+
+CONST
+
+OUTPUT
+
+INPUT
+
+PWM
+
+SERVO
+
+ADC
+
+PRINT
+
+LOG
+
+MQTT
+
+CAN
+
+UART
+
+I2C
+
+SPI
+
+---
+
+# Bytecode
+
+Criar uma ISA (Instruction Set Architecture).
+
+Exemplo:
+
+```
+LOAD
+
+STORE
+
+PUSH
+
+POP
+
+ADD
+
+SUB
+
+MUL
+
+DIV
+
+AND
+
+OR
+
+NOT
+
+CMP_GT
+
+CMP_LT
+
+CMP_EQ
+
+JMP
+
+JMP_IF
+
+CALL
+
+RET
+
+WAIT
+
+OUTPUT_ON
+
+OUTPUT_OFF
+
+PWM
+
+END
+```
+
+Documentar cada instrução.
+
+---
+
+# Interface Web
+
+Criar uma interface moderna.
+
+Menus:
+
+```
+Dashboard
+
+Scripts
+
+GPIO
+
+Variáveis
+
+Timers
+
+Contadores
+
+Logs
+
+Serial Monitor
+
+OTA
+
+Configuração
+
+Backup
+
+Restore
+```
+
+Editor semelhante ao VSCode.
+
+Syntax Highlight.
+
+Autocomplete.
+
+Numeração de linhas.
+
+Validação em tempo real.
+
+---
+
+# Debug
+
+Implementar:
+
+Breakpoints
+
+Execução passo a passo
+
+Watch
+
+Variáveis
+
+Stack
+
+Timers
+
+Contadores
+
+Uso de RAM
+
+Uso de CPU
+
+Tempo de execução
+
+---
+
+# Persistência
+
+Salvar em LittleFS:
+
+Scripts
+
+GPIO
+
+Variáveis
+
+Configurações
+
+Timers
+
+Projetos
+
+Backup
+
+Utilizar JSON.
+
+---
+
+# Requisitos
+
+Código totalmente orientado a objetos.
+
+Utilizar princípios SOLID.
+
+Baixo consumo de RAM.
+
+Baixo consumo de Flash.
+
+Sem variáveis globais desnecessárias.
+
+Documentar todas as classes.
+
+Cada classe deve possuir apenas uma responsabilidade.
+
+Sempre explicar as decisões arquiteturais.
+
+Sempre sugerir melhorias.
+
+---
+
+# Forma de trabalho
+
+Nunca gerar um projeto enorme de uma vez.
+
+Sempre desenvolver em etapas.
+
+Para cada etapa:
+
+1. Explicar a arquitetura.
+2. Explicar as decisões.
+3. Gerar os arquivos completos.
+4. Explicar como testar.
+5. Somente depois seguir para a próxima etapa.
+
+Sempre manter o código organizado, escalável e pronto para produção.
